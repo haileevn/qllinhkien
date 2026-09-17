@@ -24,11 +24,14 @@ import {
   AlertCircle,
   Plus,
   Minus,
+  ShoppingCart,
+  ExternalLink,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import QuantityModal from '@/components/QuantityModal';
 import MoveLocationModal from '@/components/MoveLocationModal';
 import { ITEM_CONDITIONS, TRANSACTION_TYPES } from '@/lib/inventory';
+import { detectShoppingPlatform } from '@/lib/shopping';
 
 export default function ItemDetailPage() {
   const params = useParams();
@@ -329,6 +332,19 @@ export default function ItemDetailPage() {
                 <QrCode className="w-3.5 h-3.5 text-sky-500" />
                 <span>In tem QR</span>
               </Link>
+
+              {item.purchaseUrl && (
+                <a
+                  href={item.purchaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 text-xs font-bold flex items-center gap-1.5 transition-colors border border-orange-200 dark:border-orange-800/80 shadow-xs"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>Mua trên {detectShoppingPlatform(item.purchaseUrl).name}</span>
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+              )}
 
               <button
                 onClick={() => setDeleteConfirmOpen(true)}

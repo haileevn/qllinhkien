@@ -17,9 +17,13 @@ import {
   Copy,
   QrCode,
   RefreshCw,
+  ShoppingCart,
+  ExternalLink,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
+import { detectShoppingPlatform } from '@/lib/shopping';
+import { clsx } from 'clsx';
 
 function NewItemForm() {
   const router = useRouter();
@@ -51,6 +55,7 @@ function NewItemForm() {
   const [notes, setNotes] = useState('');
   const [barcode, setBarcode] = useState('');
   const [qrCodeValue, setQrCodeValue] = useState('');
+  const [purchaseUrl, setPurchaseUrl] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
 
   // Helper to generate dynamic random unique code
@@ -157,6 +162,7 @@ function NewItemForm() {
     setExactPosition('');
     setPurchasePrice('');
     setPurchaseDate('');
+    setPurchaseUrl('');
     setSupplier('');
     setTagsInput('');
     setNotes('');
@@ -212,6 +218,7 @@ function NewItemForm() {
           notes: notes.trim() || null,
           barcode: barcode.trim() || null,
           qrCodeValue: qrCodeValue.trim() || null,
+          purchaseUrl: purchaseUrl.trim() || null,
           mainImage: images[0] || null,
           additionalImages: images.slice(1),
           isFavorite,
@@ -529,6 +536,40 @@ function NewItemForm() {
                   className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
+            </div>
+
+            {/* Shopping Link / Quick Reorder URL */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Link mua hàng online (Shopee, Lazada, Taobao, DigiKey...)
+                </label>
+                {purchaseUrl.trim() && (
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded-md text-[10px] font-bold border',
+                      detectShoppingPlatform(purchaseUrl).badgeBg,
+                      detectShoppingPlatform(purchaseUrl).textColor,
+                      detectShoppingPlatform(purchaseUrl).borderColor
+                    )}
+                  >
+                    {detectShoppingPlatform(purchaseUrl).name}
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <ShoppingCart className="w-4 h-4 absolute left-3 text-slate-400 pointer-events-none" />
+                <input
+                  type="url"
+                  value={purchaseUrl}
+                  onChange={(e) => setPurchaseUrl(e.target.value)}
+                  placeholder="Dán link sản phẩm Shopee, Lazada, Taobao, DigiKey, Hshop..."
+                  className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Gắn link để sau này khi sắp hết hàng có thể bấm nút mua lại ngay tức thì.
+              </p>
             </div>
 
             {/* Dynamic QR Code & Barcode Section */}

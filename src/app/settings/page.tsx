@@ -15,6 +15,8 @@ import {
   Info,
   Check,
   Loader2,
+  FolderKanban,
+  Coins,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -170,10 +172,52 @@ export default function SettingsPage() {
       {/* Utilities Section */}
       <div className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-          Tiện ích & In ấn
+          Báo cáo & Tiện ích nâng cao
         </h3>
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 shadow-sm overflow-hidden">
+          {/* Projects & BOM Kits */}
+          <Link
+            href="/projects"
+            className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <FolderKanban className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                  Quản lý Dự án & Bộ linh kiện BOM
+                </div>
+                <div className="text-xs text-slate-500">
+                  Lập danh sách linh kiện dự án, tính độ sẵn sàng và xuất kho 1 chạm
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </Link>
+
+          {/* Financial Asset Analytics */}
+          <Link
+            href="/analytics"
+            className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                  Báo cáo tổng giá trị tài sản kho
+                </div>
+                <div className="text-xs text-slate-500">
+                  Định giá tổng tài sản kho (VNĐ), phân bổ theo vị trí & dự toán mua bù
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </Link>
+
           {/* Batch Print Labels */}
           <Link
             href="/print-labels"
@@ -248,7 +292,7 @@ export default function SettingsPage() {
         <div className="space-y-1.5 text-slate-500">
           <div className="flex justify-between">
             <span>Phiên bản:</span>
-            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.1.2</strong>
+            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.2.0</strong>
           </div>
           <div className="flex justify-between">
             <span>Cơ sở dữ liệu:</span>

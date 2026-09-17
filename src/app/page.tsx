@@ -24,6 +24,8 @@ import {
   FolderOpen,
   Printer,
   ChevronRight,
+  FolderKanban,
+  Coins,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
@@ -213,13 +215,29 @@ export default function DashboardPage() {
       </section>
 
       {/* Quick Access Action Pills */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <Link
           href="/items/new"
           className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 active:scale-95 transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>Thêm vật tư mới</span>
+        </Link>
+
+        <Link
+          href="/projects"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <FolderKanban className="w-4 h-4 text-amber-500" />
+          <span>Dự án & BOM</span>
+        </Link>
+
+        <Link
+          href="/analytics"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <Coins className="w-4 h-4 text-emerald-600" />
+          <span>Báo cáo tài sản</span>
         </Link>
 
         <Link

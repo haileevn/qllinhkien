@@ -100,11 +100,13 @@ model Item {
   notes           String?
   barcode         String?
   qrCodeValue     String?
+  purchaseUrl     String?
   mainImage       String?
   isFavorite      Boolean                @default(false)
   tags            ItemTag[]
   images          ItemImage[]
   transactions    InventoryTransaction[]
+  projectItems    ProjectItem[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
@@ -150,6 +152,41 @@ model InventoryTransaction {
   @@index([type])
 }
 
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  description String?
+  status      String        @default("PLANNING") // PLANNING, IN_PROGRESS, COMPLETED, ON_HOLD, ARCHIVED
+  targetDate  DateTime?
+  budget      Float?
+  notes       String?
+  items       ProjectItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([name])
+  @@index([status])
+}
+
+model ProjectItem {
+  id               String   @id @default(uuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  itemId           String
+  item             Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  requiredQuantity Float    @default(1)
+  fulfilledQuantity Float   @default(0)
+  isDeducted       Boolean  @default(false)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([projectId, itemId])
+  @@index([projectId])
+  @@index([itemId])
+}
+
 model Unit {
   id        String   @id @default(uuid())
   name      String   @unique
@@ -166,3 +203,4 @@ model AppSetting {
   description String?
   updatedAt   DateTime @updatedAt
 }
+

@@ -22,6 +22,8 @@ import {
   Printer,
   ClipboardCheck,
   Lock,
+  FolderKanban,
+  Coins,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useRouter } from 'next/navigation';
@@ -51,6 +53,7 @@ export default function Sidebar() {
         { href: '/', label: 'Trang chủ', icon: Home, exact: true },
         { href: '/items', label: 'Tất cả vật tư', icon: Layers, exact: true },
         { href: '/items/new', label: 'Thêm vật tư mới', icon: PlusCircle },
+        { href: '/projects', label: 'Dự án & BOM Kit', icon: FolderKanban },
         { href: '/search', label: 'Tìm kiếm nhanh', icon: Search },
         { href: '/low-stock', label: 'Sắp hết & Hết hàng', icon: AlertTriangle, highlight: true },
         { href: '/transactions', label: 'Lịch sử xuất / nhập', icon: History },
@@ -65,8 +68,9 @@ export default function Sidebar() {
       ],
     },
     {
-      title: 'Công cụ & In ấn',
+      title: 'Công cụ & Báo cáo',
       items: [
+        { href: '/analytics', label: 'Báo cáo tài sản kho', icon: Coins },
         { href: '/scanner', label: 'Quét Barcode / QR', icon: QrCode },
         { href: '/print-labels', label: 'In nhãn tem hàng loạt', icon: Printer },
         { href: '/audit', label: 'Kiểm kê thực tế', icon: ClipboardCheck },

@@ -25,6 +25,7 @@ const createItemSchema = z.object({
   notes: z.string().optional().nullable(),
   barcode: z.string().optional().nullable(),
   qrCodeValue: z.string().optional().nullable(),
+  purchaseUrl: z.string().optional().nullable(),
   mainImage: z.string().optional().nullable(),
   additionalImages: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(), // Tag names or IDs
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest) {
         notes: data.notes?.trim() || null,
         barcode: data.barcode?.trim() || null,
         qrCodeValue,
+        purchaseUrl: data.purchaseUrl?.trim() || null,
         mainImage: data.mainImage || null,
         isFavorite: data.isFavorite ?? false,
       },

@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Save, Loader2, Barcode, Tag as TagIcon, ArrowLeft, QrCode, RefreshCw } from 'lucide-react';
+import { Save, Loader2, Barcode, Tag as TagIcon, ArrowLeft, QrCode, RefreshCw, ShoppingCart, ExternalLink } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
+import { detectShoppingPlatform } from '@/lib/shopping';
+import { clsx } from 'clsx';
 
 export default function EditItemPage() {
   const params = useParams();
@@ -29,6 +31,7 @@ export default function EditItemPage() {
   const [exactPosition, setExactPosition] = useState('');
   const [purchasePrice, setPurchasePrice] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState<string>('');
+  const [purchaseUrl, setPurchaseUrl] = useState('');
   const [supplier, setSupplier] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [notes, setNotes] = useState('');
@@ -93,6 +96,7 @@ export default function EditItemPage() {
         setExactPosition(it.exactPosition || '');
         setPurchasePrice(it.purchasePrice ? String(it.purchasePrice) : '');
         setPurchaseDate(it.purchaseDate ? it.purchaseDate.split('T')[0] : '');
+        setPurchaseUrl(it.purchaseUrl || '');
         setSupplier(it.supplier || '');
         setNotes(it.notes || '');
         setBarcode(it.barcode || '');
@@ -145,6 +149,7 @@ export default function EditItemPage() {
           exactPosition: exactPosition.trim() || null,
           purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
           purchaseDate: purchaseDate || null,
+          purchaseUrl: purchaseUrl.trim() || null,
           supplier: supplier.trim() || null,
           tags: tagsArray,
           notes: notes.trim() || null,
@@ -390,6 +395,40 @@ export default function EditItemPage() {
               />
             </div>
           </div>
+
+            {/* Shopping Link / Quick Reorder URL */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Link mua hàng online (Shopee, Lazada, Taobao, DigiKey...)
+                </label>
+                {purchaseUrl.trim() && (
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded-md text-[10px] font-bold border',
+                      detectShoppingPlatform(purchaseUrl).badgeBg,
+                      detectShoppingPlatform(purchaseUrl).textColor,
+                      detectShoppingPlatform(purchaseUrl).borderColor
+                    )}
+                  >
+                    {detectShoppingPlatform(purchaseUrl).name}
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <ShoppingCart className="w-4 h-4 absolute left-3 text-slate-400 pointer-events-none" />
+                <input
+                  type="url"
+                  value={purchaseUrl}
+                  onChange={(e) => setPurchaseUrl(e.target.value)}
+                  placeholder="Dán link sản phẩm Shopee, Lazada, Taobao, DigiKey, Hshop..."
+                  className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Gắn link để khi cần bổ sung tồn kho có thể bấm 1 nút để mở ngay giỏ hàng mua lại.
+              </p>
+            </div>
 
             {/* Dynamic QR Code & Barcode Section */}
             <div className="p-4 rounded-2xl bg-sky-50/50 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/80 space-y-3">
