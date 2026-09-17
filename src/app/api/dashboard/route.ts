@@ -17,9 +17,9 @@ export async function GET() {
       favoriteItemsRaw,
       recentTransactions,
     ] = await Promise.all([
-      prisma.item.count(),
-      prisma.storageLocation.count(),
-      prisma.category.count(),
+      prisma.item.count().catch(() => 0),
+      prisma.storageLocation.count().catch(() => 0),
+      prisma.category.count().catch(() => 0),
       prisma.item.findMany({
         select: {
           id: true,
@@ -27,7 +27,7 @@ export async function GET() {
           minimumQuantity: true,
           locationId: true,
         },
-      }),
+      }).catch(() => []),
       prisma.storageLocation.findMany({
         include: {
           _count: {
@@ -35,7 +35,7 @@ export async function GET() {
           },
         },
         orderBy: { name: 'asc' },
-      }),
+      }).catch(() => []),
       prisma.item.findMany({
         take: 8,
         orderBy: { createdAt: 'desc' },
@@ -45,7 +45,7 @@ export async function GET() {
           tags: { include: { tag: true } },
           images: { orderBy: { order: 'asc' } },
         },
-      }),
+      }).catch(() => []),
       prisma.item.findMany({
         where: { isFavorite: true },
         take: 8,
@@ -56,7 +56,7 @@ export async function GET() {
           tags: { include: { tag: true } },
           images: { orderBy: { order: 'asc' } },
         },
-      }),
+      }).catch(() => []),
       prisma.inventoryTransaction.findMany({
         take: 6,
         orderBy: { createdAt: 'desc' },
@@ -67,23 +67,24 @@ export async function GET() {
               name: true,
               unit: true,
               mainImage: true,
-              images: { take: 1, orderBy: { order: 'asc' } },
             },
           },
           sourceLocation: { select: { id: true, name: true, code: true } },
           destinationLocation: { select: { id: true, name: true, code: true } },
         },
-      }),
+      }).catch(() => []),
     ]);
 
     // Build location lookup map for breadcrumbs
-    const locMap = new Map(allLocations.map((l) => [l.id, l]));
+    const locMap = new Map((allLocations || []).map((l) => [l.id, l]));
 
     function getBreadcrumbString(locId: string | null | undefined): string {
       if (!locId) return 'Chưa phân vị trí';
       const names: string[] = [];
       let cur: string | null = locId;
-      while (cur) {
+      const visited = new Set<string>();
+      while (cur && !visited.has(cur)) {
+        visited.add(cur);
         const loc = locMap.get(cur);
         if (!loc) break;
         names.unshift(loc.name);
@@ -94,22 +95,25 @@ export async function GET() {
 
     // Calculate item & quantity metrics per location
     const locationItemMap = new Map<string, { count: number; totalQty: number }>();
-    allItems.forEach((i) => {
+    (allItems || []).forEach((i) => {
+      if (!i.locationId) return;
       const current = locationItemMap.get(i.locationId) || { count: 0, totalQty: 0 };
       current.count += 1;
-      current.totalQty += i.quantity;
+      current.totalQty += Number(i.quantity) || 0;
       locationItemMap.set(i.locationId, current);
     });
 
-    // Compute descendant location IDs for recursive counts
+    // Compute descendant location IDs for recursive counts (with cycle protection)
     function getDescendantIds(locId: string): string[] {
       const ids = [locId];
       const queue = [locId];
+      const visited = new Set<string>([locId]);
       while (queue.length > 0) {
         const currentParent = queue.shift()!;
-        const children = allLocations.filter((l) => l.parentId === currentParent);
+        const children = (allLocations || []).filter((l) => l.parentId === currentParent);
         for (const c of children) {
-          if (!ids.includes(c.id)) {
+          if (!visited.has(c.id)) {
+            visited.add(c.id);
             ids.push(c.id);
             queue.push(c.id);
           }
@@ -119,7 +123,7 @@ export async function GET() {
     }
 
     // Build locations overview (all top-level locations, or top locations by item count)
-    const locationsOverview = allLocations
+    const locationsOverview = (allLocations || [])
       .filter((loc) => !loc.parentId || allLocations.length <= 8)
       .map((loc) => {
         const descendantIds = getDescendantIds(loc.id);
@@ -139,8 +143,8 @@ export async function GET() {
           name: loc.name,
           code: loc.code,
           description: loc.description,
-          directItemCount: loc._count.items,
-          childrenCount: loc._count.children,
+          directItemCount: loc._count?.items ?? 0,
+          childrenCount: loc._count?.children ?? 0,
           totalDescendantItemTypes: recursiveItemTypes,
           totalQuantity: recursiveTotalQty,
           breadcrumb: getBreadcrumbString(loc.id),
@@ -152,26 +156,28 @@ export async function GET() {
     let lowStockCount = 0;
     let outOfStockCount = 0;
 
-    allItems.forEach((i) => {
-      totalQuantity += i.quantity;
-      if (i.quantity === 0) {
+    (allItems || []).forEach((i) => {
+      const qty = Number(i.quantity) || 0;
+      const minQty = Number(i.minimumQuantity) || 0;
+      totalQuantity += qty;
+      if (qty === 0) {
         outOfStockCount++;
-      } else if (i.quantity <= i.minimumQuantity) {
+      } else if (qty <= minQty) {
         lowStockCount++;
       }
     });
 
     // Format recentlyAdded items with mainImage fallback & breadcrumbs
-    const recentlyAdded = recentlyAddedRaw.map((item) => ({
+    const recentlyAdded = (recentlyAddedRaw || []).map((item) => ({
       ...item,
-      mainImage: item.mainImage || (item.images.length > 0 ? item.images[0].url : null),
+      mainImage: item.mainImage || (item.images && item.images.length > 0 ? item.images[0].url : null),
       locationPath: getBreadcrumbString(item.locationId),
     }));
 
     // Format favorite items
-    const favorites = favoriteItemsRaw.map((item) => ({
+    const favorites = (favoriteItemsRaw || []).map((item) => ({
       ...item,
-      mainImage: item.mainImage || (item.images.length > 0 ? item.images[0].url : null),
+      mainImage: item.mainImage || (item.images && item.images.length > 0 ? item.images[0].url : null),
       locationPath: getBreadcrumbString(item.locationId),
     }));
 
@@ -187,12 +193,19 @@ export async function GET() {
       locationsOverview,
       recentlyAdded,
       favorites,
-      recentTransactions,
+      recentTransactions: recentTransactions || [],
       updatedAt: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Dashboard error:', error);
-    return NextResponse.json({ error: 'Lỗi tải thống kê' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Lỗi tải thống kê',
+        message: error?.message || String(error),
+        code: error?.code,
+      },
+      { status: 500 }
+    );
   }
 }
 

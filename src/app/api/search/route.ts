@@ -37,7 +37,9 @@ export async function GET(req: NextRequest) {
     function getBreadcrumbString(locId: string): string {
       const names: string[] = [];
       let cur: string | null = locId;
-      while (cur) {
+      const visited = new Set<string>();
+      while (cur && !visited.has(cur)) {
+        visited.add(cur);
         const loc = locMap.get(cur);
         if (!loc) break;
         names.unshift(loc.name);

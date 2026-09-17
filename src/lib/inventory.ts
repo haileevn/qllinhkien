@@ -20,7 +20,9 @@ export async function getLocationBreadcrumbs(locationId: string): Promise<Locati
 
   const locationMap = new Map(allLocations.map((l) => [l.id, l]));
 
-  while (currentId) {
+  const visited = new Set<string>();
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
     const loc = locationMap.get(currentId);
     if (!loc) break;
     breadcrumbs.unshift({ id: loc.id, name: loc.name, code: loc.code });
@@ -49,12 +51,14 @@ export async function getDescendantLocationIds(locationId: string): Promise<stri
 
   const ids = [locationId];
   let toCheck = [locationId];
+  const visited = new Set<string>([locationId]);
 
   while (toCheck.length > 0) {
-    const currentParentId = toCheck.pop();
+    const currentParentId = toCheck.pop()!;
     const children = allLocations.filter((l) => l.parentId === currentParentId);
     for (const child of children) {
-      if (!ids.includes(child.id)) {
+      if (!visited.has(child.id)) {
+        visited.add(child.id);
         ids.push(child.id);
         toCheck.push(child.id);
       }
