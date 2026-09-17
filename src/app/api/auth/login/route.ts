@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword, createSessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
+import { verifyPassword, hashPassword, createSessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -20,9 +20,46 @@ export async function POST(req: NextRequest) {
     }
 
     const { username, password } = parsed.data;
+    const cleanUsername = username.trim().toLowerCase();
+
+    // Check if any users exist in database
+    const userCount = await prisma.user.count().catch(() => -1);
+
+    // If tables are missing or count failed, return clear DB error
+    if (userCount === -1) {
+      return NextResponse.json(
+        {
+          error:
+            'Chưa khởi tạo bảng trong cơ sở dữ liệu. Vui lòng chạy lệnh "npx prisma db push" hoặc kiểm tra lại DATABASE_URL.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Auto-create default admin if database is completely empty
+    if (userCount === 0) {
+      const defaultHash = await hashPassword('admin123456');
+      await prisma.user.create({
+        data: {
+          username: 'admin',
+          passwordHash: defaultHash,
+          name: 'Quản trị viên H2T',
+          role: 'ADMIN',
+        },
+      });
+
+      // Also create default units if empty
+      const unitCount = await prisma.unit.count().catch(() => 0);
+      if (unitCount === 0) {
+        const defaultUnits = ['cái', 'bộ', 'hộp', 'cuộn', 'mét', 'gói', 'thanh', 'kg'];
+        for (const u of defaultUnits) {
+          await prisma.unit.create({ data: { name: u, isDefault: true } }).catch(() => {});
+        }
+      }
+    }
 
     const user = await prisma.user.findUnique({
-      where: { username: username.trim().toLowerCase() },
+      where: { username: cleanUsername },
     });
 
     if (!user) {
@@ -68,8 +105,11 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    return NextResponse.json({ error: 'Đã xảy ra lỗi máy chủ' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Đã xảy ra lỗi máy chủ kết nối cơ sở dữ liệu' },
+      { status: 500 }
+    );
   }
 }
