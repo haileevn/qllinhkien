@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword, hashPassword, createSessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
+import { verifyPassword, createSessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
+import { ensureDatabaseReady } from '@/lib/db-bootstrap';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -22,65 +23,15 @@ export async function POST(req: NextRequest) {
     const { username, password } = parsed.data;
     const cleanUsername = username.trim().toLowerCase();
 
-    // Check if any users exist in database
-    let userCount = await prisma.user.count().catch(() => -1);
-
-    // If tables are missing, auto-push schema using Prisma CLI
-    if (userCount === -1) {
-      try {
-        console.log('📦 Database tables not found. Automatically running "npx prisma db push"...');
-        const { execSync } = await import('child_process');
-        execSync('npx prisma db push --skip-generate --accept-data-loss', {
-          env: { ...process.env },
-          stdio: 'pipe',
-        });
-        // Re-check user count after pushing schema
-        userCount = await prisma.user.count().catch(() => 0);
-      } catch (dbPushError: any) {
-        const errorDetail =
-          dbPushError?.stderr?.toString() ||
-          dbPushError?.stdout?.toString() ||
-          dbPushError?.message ||
-          'Không rõ nguyên nhân';
-        console.error('Auto prisma db push failed:', errorDetail);
-        return NextResponse.json(
-          {
-            error: `Lỗi kết nối cơ sở dữ liệu: ${errorDetail}. Vui lòng kiểm tra biến DATABASE_URL trên Coolify (lưu ý: dùng tên service hoặc IP nội bộ, không dùng "localhost").`,
-          },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Auto-create default admin if database is completely empty
-    if (userCount === 0) {
-      const defaultHash = await hashPassword('admin123456');
-      await prisma.user.create({
-        data: {
-          username: 'admin',
-          passwordHash: defaultHash,
-          name: 'Quản trị viên H2T',
-          role: 'ADMIN',
+    // Ensure Database tables and default admin are ready
+    const bootstrap = await ensureDatabaseReady();
+    if (!bootstrap.success) {
+      return NextResponse.json(
+        {
+          error: `Lỗi kết nối cơ sở dữ liệu PostgreSQL: ${bootstrap.error || bootstrap.message}. Vui lòng kiểm tra lại biến DATABASE_URL trên Coolify.`,
         },
-      });
-
-      // Also create default units if empty
-      const unitCount = await prisma.unit.count().catch(() => 0);
-      if (unitCount === 0) {
-        const defaultUnits = [
-          { name: 'cái', isDefault: true, order: 1 },
-          { name: 'bộ', isDefault: false, order: 2 },
-          { name: 'hộp', isDefault: false, order: 3 },
-          { name: 'cuộn', isDefault: false, order: 4 },
-          { name: 'mét', isDefault: false, order: 5 },
-          { name: 'gói', isDefault: false, order: 6 },
-          { name: 'thanh', isDefault: false, order: 7 },
-          { name: 'kg', isDefault: false, order: 8 },
-        ];
-        for (const u of defaultUnits) {
-          await prisma.unit.create({ data: u }).catch(() => {});
-        }
-      }
+        { status: 500 }
+      );
     }
 
     const user = await prisma.user.findUnique({

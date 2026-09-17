@@ -1,69 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/auth';
-import { execSync } from 'child_process';
+import { ensureDatabaseReady } from '@/lib/db-bootstrap';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('🚀 Triggering manual/automatic database initialization...');
+    console.log('🚀 Triggering manual database initialization via /api/system/init-db...');
+    const result = await ensureDatabaseReady();
 
-    // 1. Run prisma db push
-    try {
-      const output = execSync('npx prisma db push --skip-generate --accept-data-loss', {
-        env: { ...process.env },
-        stdio: 'pipe',
-      });
-      console.log('Prisma push output:', output.toString());
-    } catch (e: any) {
-      const err = e?.stderr?.toString() || e?.stdout?.toString() || e?.message;
-      console.error('Prisma push error:', err);
+    if (!result.success) {
       return NextResponse.json(
         {
           success: false,
-          error: `Lỗi kết nối PostgreSQL: ${err}`,
-          hint: 'Kiểm tra biến DATABASE_URL trên Coolify. Nếu dùng PostgreSQL của Coolify, hãy copy chuỗi "Internal Database URL".',
+          error: result.error || result.message,
+          hint: 'Vui lòng kiểm tra biến DATABASE_URL trên Coolify (đảm bảo host, user, password và tên database chính xác).',
         },
         { status: 500 }
       );
-    }
-
-    // 2. Ensure Admin User
-    const passwordHash = await hashPassword('admin123456');
-    const admin = await prisma.user.upsert({
-      where: { username: 'admin' },
-      update: {},
-      create: {
-        username: 'admin',
-        name: 'Quản trị viên H2T',
-        passwordHash,
-        role: 'ADMIN',
-      },
-    });
-
-    // 3. Ensure Units
-    const defaultUnits = [
-      { name: 'cái', isDefault: true, order: 1 },
-      { name: 'bộ', isDefault: false, order: 2 },
-      { name: 'hộp', isDefault: false, order: 3 },
-      { name: 'cuộn', isDefault: false, order: 4 },
-      { name: 'mét', isDefault: false, order: 5 },
-      { name: 'gói', isDefault: false, order: 6 },
-      { name: 'thanh', isDefault: false, order: 7 },
-      { name: 'kg', isDefault: false, order: 8 },
-    ];
-    for (const u of defaultUnits) {
-      await prisma.unit.upsert({
-        where: { name: u.name },
-        update: {},
-        create: u,
-      }).catch(() => {});
     }
 
     return NextResponse.json({
       success: true,
       message: 'Khởi tạo cơ sở dữ liệu và tài khoản quản trị thành công!',
       admin: {
-        username: admin.username,
+        username: 'admin',
         defaultPassword: 'admin123456',
       },
     });
@@ -82,3 +40,4 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return GET(req);
 }
+
