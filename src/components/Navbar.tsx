@@ -42,10 +42,12 @@ export default function Navbar({ title, showBack, backHref, action }: NavbarProp
 
             {isHome ? (
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-sky-600 flex items-center justify-center text-white font-bold text-xs md:hidden">
-                  H2T
-                </div>
-                <h1 className="font-bold text-slate-900 dark:text-white text-base md:text-lg truncate">
+                <img
+                  src="/icon.svg"
+                  alt="H2T"
+                  className="w-7 h-7 rounded-lg shadow-sm md:hidden object-cover"
+                />
+                <h1 className="font-black text-slate-900 dark:text-white text-base md:text-lg truncate">
                   H2T Home Inventory
                 </h1>
               </div>

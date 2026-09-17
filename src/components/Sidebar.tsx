@@ -90,15 +90,17 @@ export default function Sidebar() {
     <aside className="hidden md:flex md:w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 min-h-screen sticky top-0 shrink-0">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20">
-            H2T
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <img
+            src="/icon.svg"
+            alt="H2T Logo"
+            className="w-9 h-9 rounded-xl shadow-md shadow-sky-500/20 object-cover group-hover:scale-105 transition-transform"
+          />
           <div>
-            <div className="font-bold text-slate-900 dark:text-white leading-none text-base">
+            <div className="font-black text-slate-900 dark:text-white leading-none text-base tracking-tight">
               H2T Inventory
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Kho vật tư gia đình
             </div>
           </div>

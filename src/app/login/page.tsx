@@ -56,10 +56,12 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Logo & App Name */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-sky-500/25">
-            <Box className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <img
+            src="/logo.png"
+            alt="H2T Home Inventory Logo"
+            className="w-20 h-20 rounded-2xl mx-auto mb-3 shadow-xl shadow-sky-500/25 border-2 border-sky-400/30 object-cover"
+          />
+          <h1 className="text-2xl font-black text-white tracking-tight">
             H2T Home Inventory
           </h1>
           <p className="text-xs text-slate-400 mt-1">

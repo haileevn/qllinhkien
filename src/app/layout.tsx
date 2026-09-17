@@ -6,6 +6,15 @@ export const metadata: Metadata = {
   title: 'H2T Home Inventory - Quản lý linh kiện & kho gia đình',
   description: 'Hệ thống quản lý linh kiện điện tử, dụng cụ, vật tư gia đình với tìm kiếm tức thì và định vị chính xác.',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '192x192', type: 'image/png' },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
