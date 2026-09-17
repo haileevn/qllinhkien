@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { generateUniqueCode } from '@/lib/inventory';
 import { z } from 'zod';
 
 const locationSchema = z.object({
@@ -65,10 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
     }
 
+    let code = parsed.data.code?.trim() || null;
+    if (!code) {
+      code = generateUniqueCode('LOC');
+    }
+
     const location = await prisma.storageLocation.create({
       data: {
         name: parsed.data.name.trim(),
-        code: parsed.data.code?.trim() || null,
+        code,
         description: parsed.data.description?.trim() || null,
         image: parsed.data.image || null,
         parentId: parsed.data.parentId || null,
@@ -81,3 +87,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Lỗi tạo vị trí lưu trữ' }, { status: 500 });
   }
 }
+

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Save, Loader2, Barcode, Tag as TagIcon, ArrowLeft } from 'lucide-react';
+import { Save, Loader2, Barcode, Tag as TagIcon, ArrowLeft, QrCode, RefreshCw } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
 
@@ -33,8 +33,18 @@ export default function EditItemPage() {
   const [tagsInput, setTagsInput] = useState('');
   const [notes, setNotes] = useState('');
   const [barcode, setBarcode] = useState('');
+  const [qrCodeValue, setQrCodeValue] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  const generateRandomItemCode = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let res = '';
+    for (let i = 0; i < 6; i++) {
+      res += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `H2T-ITM-${res}`;
+  };
 
   // Metadata
   const [categories, setCategories] = useState<any[]>([]);
@@ -86,6 +96,7 @@ export default function EditItemPage() {
         setSupplier(it.supplier || '');
         setNotes(it.notes || '');
         setBarcode(it.barcode || '');
+        setQrCodeValue(it.qrCodeValue || '');
         setIsFavorite(it.isFavorite);
         setTagsInput(it.tags?.map((t: any) => t.tag.name).join(', ') || '');
 
@@ -138,6 +149,7 @@ export default function EditItemPage() {
           tags: tagsArray,
           notes: notes.trim() || null,
           barcode: barcode.trim() || null,
+          qrCodeValue: qrCodeValue.trim() || null,
           mainImage: images[0] || null,
           additionalImages: images.slice(1),
           isFavorite,
@@ -379,43 +391,75 @@ export default function EditItemPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Mã vạch (Barcode)
-              </label>
-              <input
-                type="text"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
-              />
+            {/* Dynamic QR Code & Barcode Section */}
+            <div className="p-4 rounded-2xl bg-sky-50/50 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-sky-600" />
+                  <span>Mã định danh QR động (Không trùng lặp)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setQrCodeValue(generateRandomItemCode())}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs"
+                  title="Sinh mã định danh ngẫu nhiên mới"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Sinh mã mới</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={qrCodeValue}
+                  onChange={(e) => setQrCodeValue(e.target.value)}
+                  placeholder="Ví dụ: H2T-ITM-8K9F2A"
+                  className="w-full px-3.5 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-sky-900 dark:text-sky-200 uppercase"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Mã này được in trên tem QR. Quét camera sẽ tìm chính xác vật tư này.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Mã vạch (Barcode)
+                </label>
+                <input
+                  type="text"
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Thẻ (Tags, phân cách bằng dấu phẩy)
+                </label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Thẻ (Tags, phân cách bằng dấu phẩy)
+                Ghi chú
               </label>
-              <input
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Ghi chú
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
-            />
-          </div>
         </div>
 
         {/* Submit */}

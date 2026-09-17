@@ -15,6 +15,8 @@ import {
   ArrowLeft,
   Camera,
   Copy,
+  QrCode,
+  RefreshCw,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
@@ -48,7 +50,18 @@ function NewItemForm() {
   const [tagsInput, setTagsInput] = useState('');
   const [notes, setNotes] = useState('');
   const [barcode, setBarcode] = useState('');
+  const [qrCodeValue, setQrCodeValue] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Helper to generate dynamic random unique code
+  const generateRandomItemCode = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let res = '';
+    for (let i = 0; i < 6; i++) {
+      res += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `H2T-ITM-${res}`;
+  };
 
   // Metadata dropdown options
   const [categories, setCategories] = useState<any[]>([]);
@@ -59,6 +72,12 @@ function NewItemForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isClone, setIsClone] = useState(false);
+
+  useEffect(() => {
+    if (!qrCodeValue) {
+      setQrCodeValue(generateRandomItemCode());
+    }
+  }, []);
 
   useEffect(() => {
     fetchMetadataAndClone();
@@ -142,6 +161,7 @@ function NewItemForm() {
     setTagsInput('');
     setNotes('');
     setBarcode('');
+    setQrCodeValue(generateRandomItemCode());
     setIsFavorite(false);
     setError(null);
   };
@@ -191,6 +211,7 @@ function NewItemForm() {
           tags: tagsArray,
           notes: notes.trim() || null,
           barcode: barcode.trim() || null,
+          qrCodeValue: qrCodeValue.trim() || null,
           mainImage: images[0] || null,
           additionalImages: images.slice(1),
           isFavorite,
@@ -510,11 +531,43 @@ function NewItemForm() {
               </div>
             </div>
 
+            {/* Dynamic QR Code & Barcode Section */}
+            <div className="p-4 rounded-2xl bg-sky-50/50 dark:bg-sky-950/30 border border-sky-200/80 dark:border-sky-800/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-sky-600" />
+                  <span>Mã định danh QR động (Không trùng lặp)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setQrCodeValue(generateRandomItemCode())}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs"
+                  title="Sinh mã định danh ngẫu nhiên mới"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Sinh mã mới</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={qrCodeValue}
+                  onChange={(e) => setQrCodeValue(e.target.value)}
+                  placeholder="Ví dụ: H2T-ITM-8K9F2A"
+                  className="w-full px-3.5 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-sky-900 dark:text-sky-200 uppercase"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Mã này được mã hoá vào tem QR để khi quét camera sẽ mở chính xác vật tư này (tránh nhầm lẫn kể cả khi các thiết bị trùng tên).
+              </p>
+            </div>
+
             {/* Barcode & Tags */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Mã vạch (Barcode)
+                  Mã vạch bao bì gốc (Barcode nếu có)
                 </label>
                 <div className="relative">
                   <Barcode className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />

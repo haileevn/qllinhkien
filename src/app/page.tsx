@@ -19,6 +19,11 @@ import {
   Layers,
   History,
   Loader2,
+  RefreshCw,
+  Folder,
+  FolderOpen,
+  Printer,
+  ChevronRight,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
@@ -27,10 +32,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
   useEffect(() => {
     fetchDashboard();
@@ -60,18 +67,25 @@ export default function DashboardPage() {
     } catch {}
   };
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual) setRefreshing(true);
+      else setLoading(true);
+
       const res = await fetch('/api/dashboard');
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        const now = new Date();
+        setLastUpdated(
+          now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        );
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -116,7 +130,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Navbar title="H2T Home Inventory" />
+      <Navbar
+        title="H2T Home Inventory"
+        action={
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => fetchDashboard(true)}
+              disabled={refreshing || loading}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
+              title="Làm mới dữ liệu tức thì"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-sky-600' : ''}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+          </div>
+        }
+      />
 
       {/* Prominent Live Search Hero */}
       <section className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 rounded-3xl p-4 sm:p-7 text-white shadow-xl shadow-sky-700/20 relative overflow-hidden">
@@ -125,13 +154,20 @@ export default function DashboardPage() {
         <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold mb-3 border border-white/20">
-            <Sparkles className="w-3.5 h-3.5 text-sky-200" />
-            <span>Tra cứu tức thì &bull; Định vị chính xác</span>
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold border border-white/20">
+              <Sparkles className="w-3.5 h-3.5 text-sky-200" />
+              <span>Quản lý kho & Vật tư kỹ thuật H2T</span>
+            </div>
+            {lastUpdated && (
+              <span className="text-[11px] text-sky-200/80 font-medium">
+                Cập nhật: {lastUpdated}
+              </span>
+            )}
           </div>
 
           <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight mb-4 leading-tight">
-            Bạn đang tìm vật tư nào?
+            Bạn đang tìm vật tư, linh kiện nào?
           </h2>
 
           {/* Search Bar */}
@@ -176,6 +212,41 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Quick Access Action Pills */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <Link
+          href="/items/new"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 active:scale-95 transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Thêm vật tư mới</span>
+        </Link>
+
+        <Link
+          href="/scanner"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <QrCode className="w-4 h-4 text-sky-600" />
+          <span>Quét Barcode / QR</span>
+        </Link>
+
+        <Link
+          href="/print-labels"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <Printer className="w-4 h-4 text-purple-600" />
+          <span>In tem nhãn QR</span>
+        </Link>
+
+        <Link
+          href="/locations"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <MapPin className="w-4 h-4 text-emerald-600" />
+          <span>Cây kho lưu trữ</span>
+        </Link>
+      </section>
+
       {/* Live Search Instant Results Dropdown / Preview */}
       {searchQuery.trim() && (
         <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xl">
@@ -205,7 +276,7 @@ export default function DashboardPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {searchResults.slice(0, 6).map((item) => (
-                <ItemCard key={item.id} item={item} />
+                <ItemCard key={item.id} item={item} onItemUpdated={() => fetchDashboard(true)} />
               ))}
             </div>
           )}
@@ -226,7 +297,7 @@ export default function DashboardPage() {
             {loading ? '...' : data?.stats?.totalItemTypes ?? 0}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Loại vật tư
+            Chủng loại vật tư
           </div>
         </Link>
 
@@ -292,13 +363,115 @@ export default function DashboardPage() {
         </Link>
       </section>
 
+      {/* NEW SECTION: Tổng quan các khu vực kho & Tủ lưu trữ (Storage Locations Overview) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-emerald-600" />
+            <span>Tổng quan các khu vực kho & Tủ lưu trữ</span>
+          </h2>
+          <Link
+            href="/locations"
+            className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+          >
+            <span>Xem cây kho toàn bộ</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="py-8 flex justify-center text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
+          </div>
+        ) : data?.locationsOverview && data.locationsOverview.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            {data.locationsOverview.map((loc: any) => (
+              <div
+                key={loc.id}
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-400 dark:hover:border-emerald-700 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Folder className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <Link
+                          href={`/locations/${loc.id}`}
+                          className="font-bold text-slate-900 dark:text-white text-sm hover:text-sky-600 truncate block"
+                        >
+                          {loc.name}
+                        </Link>
+                        {loc.code && (
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {loc.code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {loc.description && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+                      {loc.description}
+                    </p>
+                  )}
+
+                  {/* Metrics in this location */}
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                      <div className="text-[10px] text-slate-400">Chủng loại</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {loc.totalDescendantItemTypes ?? loc.directItemCount} loại
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-sky-50/60 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50">
+                      <div className="text-[10px] text-sky-600 dark:text-sky-400">Tổng số lượng</div>
+                      <div className="font-black text-sky-700 dark:text-sky-300">
+                        {loc.totalQuantity ?? 0} món
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Action Footers */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <Link
+                    href={`/locations/${loc.id}`}
+                    className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>Mở kho</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+
+                  <Link
+                    href={`/items/new?locationId=${loc.id}`}
+                    className="p-1 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 text-[11px] font-medium"
+                    title="Thêm đồ vào kho này"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm đồ</span>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            Chưa có khu vực kho nào được tạo.
+          </div>
+        )}
+      </section>
+
       {/* Section: Hay dùng (Favorites) */}
       {data?.favorites && data.favorites.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span>Hay dùng</span>
+              <span>Hay dùng ({data.favorites.length})</span>
             </h2>
             <Link
               href="/items?isFavorite=true"
@@ -310,7 +483,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {data.favorites.map((item: any) => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={item} onItemUpdated={() => fetchDashboard(true)} />
             ))}
           </div>
         </section>
@@ -321,7 +494,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Clock className="w-4 h-4 text-sky-600" />
-            <span>Mới thêm gần đây</span>
+            <span>Mới thêm gần đây ({data?.recentlyAdded?.length || 0})</span>
           </h2>
           <Link
             href="/items?sort=created_desc"
@@ -336,14 +509,14 @@ export default function DashboardPage() {
             <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
           </div>
         ) : data?.recentlyAdded && data.recentlyAdded.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {data.recentlyAdded.map((item: any) => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={item} onItemUpdated={() => fetchDashboard(true)} />
             ))}
           </div>
         ) : (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            Chưa có vật tư nào trong hệ thống.
+            Chưa có vật tư nào trong hệ thống. Hãy nhấn &quot;Thêm vật tư mới&quot; để bắt đầu!
           </div>
         )}
       </section>
@@ -356,6 +529,12 @@ export default function DashboardPage() {
               <History className="w-4 h-4 text-purple-600" />
               <span>Biến động kho gần đây</span>
             </h2>
+            <Link
+              href="/transactions"
+              className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+            >
+              Xem nhật ký →
+            </Link>
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -418,3 +597,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

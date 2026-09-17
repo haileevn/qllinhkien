@@ -90,14 +90,19 @@ export default function ItemQRPage() {
 
         {/* Center: QR Code & Item Name */}
         <div className="flex items-center gap-3.5 py-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(
-              qrData
-            )}`}
-            alt="QR Code"
-            className="w-24 h-24 shrink-0 border border-black p-1"
-          />
+          <div className="flex flex-col items-center shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(
+                qrData
+              )}`}
+              alt="QR Code"
+              className="w-24 h-24 border border-black p-1"
+            />
+            <span className="text-[9px] font-mono font-bold text-black mt-1 uppercase max-w-[100px] truncate">
+              {qrData}
+            </span>
+          </div>
 
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-bold text-slate-600 uppercase">

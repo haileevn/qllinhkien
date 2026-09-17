@@ -12,8 +12,9 @@ export async function GET() {
       totalLocations,
       totalCategories,
       allItems,
-      recentlyAdded,
-      favoriteItems,
+      allLocations,
+      recentlyAddedRaw,
+      favoriteItemsRaw,
       recentTransactions,
     ] = await Promise.all([
       prisma.item.count(),
@@ -24,15 +25,25 @@ export async function GET() {
           id: true,
           quantity: true,
           minimumQuantity: true,
+          locationId: true,
         },
       }),
+      prisma.storageLocation.findMany({
+        include: {
+          _count: {
+            select: { items: true, children: true },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
       prisma.item.findMany({
-        take: 6,
+        take: 8,
         orderBy: { createdAt: 'desc' },
         include: {
-          category: { select: { name: true } },
-          location: { select: { name: true, code: true } },
+          category: { select: { id: true, name: true, slug: true } },
+          location: { select: { id: true, name: true, code: true, parentId: true } },
           tags: { include: { tag: true } },
+          images: { orderBy: { order: 'asc' } },
         },
       }),
       prisma.item.findMany({
@@ -40,20 +51,103 @@ export async function GET() {
         take: 8,
         orderBy: { updatedAt: 'desc' },
         include: {
-          category: { select: { name: true } },
-          location: { select: { name: true, code: true } },
+          category: { select: { id: true, name: true, slug: true } },
+          location: { select: { id: true, name: true, code: true, parentId: true } },
           tags: { include: { tag: true } },
+          images: { orderBy: { order: 'asc' } },
         },
       }),
       prisma.inventoryTransaction.findMany({
-        take: 5,
+        take: 6,
         orderBy: { createdAt: 'desc' },
         include: {
-          item: { select: { id: true, name: true, unit: true } },
+          item: {
+            select: {
+              id: true,
+              name: true,
+              unit: true,
+              mainImage: true,
+              images: { take: 1, orderBy: { order: 'asc' } },
+            },
+          },
+          sourceLocation: { select: { id: true, name: true, code: true } },
+          destinationLocation: { select: { id: true, name: true, code: true } },
         },
       }),
     ]);
 
+    // Build location lookup map for breadcrumbs
+    const locMap = new Map(allLocations.map((l) => [l.id, l]));
+
+    function getBreadcrumbString(locId: string | null | undefined): string {
+      if (!locId) return 'Chưa phân vị trí';
+      const names: string[] = [];
+      let cur: string | null = locId;
+      while (cur) {
+        const loc = locMap.get(cur);
+        if (!loc) break;
+        names.unshift(loc.name);
+        cur = loc.parentId;
+      }
+      return names.length > 0 ? names.join(' → ') : 'Chưa phân vị trí';
+    }
+
+    // Calculate item & quantity metrics per location
+    const locationItemMap = new Map<string, { count: number; totalQty: number }>();
+    allItems.forEach((i) => {
+      const current = locationItemMap.get(i.locationId) || { count: 0, totalQty: 0 };
+      current.count += 1;
+      current.totalQty += i.quantity;
+      locationItemMap.set(i.locationId, current);
+    });
+
+    // Compute descendant location IDs for recursive counts
+    function getDescendantIds(locId: string): string[] {
+      const ids = [locId];
+      const queue = [locId];
+      while (queue.length > 0) {
+        const currentParent = queue.shift()!;
+        const children = allLocations.filter((l) => l.parentId === currentParent);
+        for (const c of children) {
+          if (!ids.includes(c.id)) {
+            ids.push(c.id);
+            queue.push(c.id);
+          }
+        }
+      }
+      return ids;
+    }
+
+    // Build locations overview (all top-level locations, or top locations by item count)
+    const locationsOverview = allLocations
+      .filter((loc) => !loc.parentId || allLocations.length <= 8)
+      .map((loc) => {
+        const descendantIds = getDescendantIds(loc.id);
+        let recursiveItemTypes = 0;
+        let recursiveTotalQty = 0;
+
+        descendantIds.forEach((dId) => {
+          const stats = locationItemMap.get(dId);
+          if (stats) {
+            recursiveItemTypes += stats.count;
+            recursiveTotalQty += stats.totalQty;
+          }
+        });
+
+        return {
+          id: loc.id,
+          name: loc.name,
+          code: loc.code,
+          description: loc.description,
+          directItemCount: loc._count.items,
+          childrenCount: loc._count.children,
+          totalDescendantItemTypes: recursiveItemTypes,
+          totalQuantity: recursiveTotalQty,
+          breadcrumb: getBreadcrumbString(loc.id),
+        };
+      });
+
+    // Global Stats
     let totalQuantity = 0;
     let lowStockCount = 0;
     let outOfStockCount = 0;
@@ -67,6 +161,20 @@ export async function GET() {
       }
     });
 
+    // Format recentlyAdded items with mainImage fallback & breadcrumbs
+    const recentlyAdded = recentlyAddedRaw.map((item) => ({
+      ...item,
+      mainImage: item.mainImage || (item.images.length > 0 ? item.images[0].url : null),
+      locationPath: getBreadcrumbString(item.locationId),
+    }));
+
+    // Format favorite items
+    const favorites = favoriteItemsRaw.map((item) => ({
+      ...item,
+      mainImage: item.mainImage || (item.images.length > 0 ? item.images[0].url : null),
+      locationPath: getBreadcrumbString(item.locationId),
+    }));
+
     return NextResponse.json({
       stats: {
         totalItemTypes,
@@ -76,12 +184,15 @@ export async function GET() {
         totalLocations,
         totalCategories,
       },
+      locationsOverview,
       recentlyAdded,
-      favorites: favoriteItems,
+      favorites,
       recentTransactions,
+      updatedAt: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Dashboard error:', error);
     return NextResponse.json({ error: 'Lỗi tải thống kê' }, { status: 500 });
   }
 }
+

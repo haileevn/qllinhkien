@@ -209,14 +209,19 @@ function PrintLabelsContent() {
 
                   {/* QR & Info */}
                   <div className="flex items-center gap-2.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(
-                        qrData
-                      )}`}
-                      alt="QR"
-                      className="w-16 h-16 shrink-0 border border-black p-0.5"
-                    />
+                    <div className="flex flex-col items-center shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(
+                          qrData
+                        )}`}
+                        alt="QR"
+                        className="w-16 h-16 border border-black p-0.5"
+                      />
+                      <span className="text-[8px] font-mono font-bold text-black mt-0.5 uppercase max-w-[70px] truncate">
+                        {qrData}
+                      </span>
+                    </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="font-black text-xs leading-snug line-clamp-2 text-black">
                         {item.name}

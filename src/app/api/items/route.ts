@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { createSlug, removeVietnameseTones } from '@/lib/vietnamese';
-import { getDescendantLocationIds } from '@/lib/inventory';
+import { getDescendantLocationIds, generateUniqueCode } from '@/lib/inventory';
 import { z } from 'zod';
 
 const createItemSchema = z.object({
@@ -24,6 +24,7 @@ const createItemSchema = z.object({
   supplier: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   barcode: z.string().optional().nullable(),
+  qrCodeValue: z.string().optional().nullable(),
   mainImage: z.string().optional().nullable(),
   additionalImages: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(), // Tag names or IDs
@@ -166,8 +167,17 @@ export async function POST(req: NextRequest) {
       slug = `${baseSlug}-${count++}`;
     }
 
-    // Generate QR code value if not provided
-    const qrCodeValue = data.sku ? `ITEM:${data.sku}` : `ITEM:${slug}`;
+    // Generate unique dynamic QR code value if not provided
+    let qrCodeValue = data.qrCodeValue?.trim();
+    if (!qrCodeValue) {
+      let attempts = 0;
+      do {
+        qrCodeValue = generateUniqueCode('ITM');
+        const exists = await prisma.item.findFirst({ where: { qrCodeValue } });
+        if (!exists) break;
+        attempts++;
+      } while (attempts < 5);
+    }
 
     const item = await prisma.item.create({
       data: {

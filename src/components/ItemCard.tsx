@@ -19,6 +19,7 @@ interface ItemCardProps {
     minimumQuantity: number;
     condition?: string;
     mainImage?: string | null;
+    images?: { id?: string; url: string; isPrimary?: boolean }[];
     category?: { id: string; name: string } | null;
     location?: { id: string; name: string; code?: string | null } | null;
     locationPath?: string;
@@ -89,6 +90,9 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
     }
   };
 
+  const [imgError, setImgError] = useState(false);
+  const displayImage = !imgError && (item.mainImage || item.images?.find((i) => i.isPrimary)?.url || item.images?.[0]?.url || null);
+
   return (
     <>
       <div className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-800 p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
@@ -129,11 +133,12 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
           <Link href={`/items/${item.id}`} className="flex gap-3 items-start block">
             {/* Image Thumbnail */}
             <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
-              {item.mainImage ? (
+              {displayImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={item.mainImage}
+                  src={displayImage}
                   alt={item.name}
+                  onError={() => setImgError(true)}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
               ) : (

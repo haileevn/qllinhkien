@@ -85,3 +85,22 @@ export const TRANSACTION_TYPES: Record<string, { label: string; prefix: string; 
   ADJUSTMENT: { label: 'Điều chỉnh số lượng', prefix: '±', color: 'text-blue-600 dark:text-blue-400', badgeBg: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
   MOVE: { label: 'Chuyển vị trí', prefix: '→', color: 'text-purple-600 dark:text-purple-400', badgeBg: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' },
 };
+
+/**
+ * Character set without ambiguous characters (no 0, O, 1, I, L)
+ */
+const CODE_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+/**
+ * Generates a collision-resistant unique code for items or locations
+ * Format: H2T-ITM-XXXXXX or H2T-LOC-XXXXXX
+ */
+export function generateUniqueCode(prefix: 'ITM' | 'LOC' = 'ITM', length = 6): string {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * CODE_CHARS.length);
+    result += CODE_CHARS[randomIndex];
+  }
+  return `H2T-${prefix}-${result}`;
+}
+
