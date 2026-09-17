@@ -23,17 +23,29 @@ export async function POST(req: NextRequest) {
     const cleanUsername = username.trim().toLowerCase();
 
     // Check if any users exist in database
-    const userCount = await prisma.user.count().catch(() => -1);
+    let userCount = await prisma.user.count().catch(() => -1);
 
-    // If tables are missing or count failed, return clear DB error
+    // If tables are missing, auto-push schema using Prisma CLI
     if (userCount === -1) {
-      return NextResponse.json(
-        {
-          error:
-            'Chưa khởi tạo bảng trong cơ sở dữ liệu. Vui lòng chạy lệnh "npx prisma db push" hoặc kiểm tra lại DATABASE_URL.',
-        },
-        { status: 500 }
-      );
+      try {
+        console.log('📦 Database tables not found. Automatically running "npx prisma db push"...');
+        const { execSync } = await import('child_process');
+        execSync('npx prisma db push --skip-generate --accept-data-loss', {
+          env: { ...process.env },
+          stdio: 'pipe',
+        });
+        // Re-check user count after pushing schema
+        userCount = await prisma.user.count().catch(() => 0);
+      } catch (dbPushError: any) {
+        console.error('Auto prisma db push failed:', dbPushError);
+        return NextResponse.json(
+          {
+            error:
+              'Không thể tự động đồng bộ bảng cơ sở dữ liệu. Vui lòng kiểm tra lại biến DATABASE_URL trên Coolify.',
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Auto-create default admin if database is completely empty
@@ -51,9 +63,18 @@ export async function POST(req: NextRequest) {
       // Also create default units if empty
       const unitCount = await prisma.unit.count().catch(() => 0);
       if (unitCount === 0) {
-        const defaultUnits = ['cái', 'bộ', 'hộp', 'cuộn', 'mét', 'gói', 'thanh', 'kg'];
+        const defaultUnits = [
+          { name: 'cái', isDefault: true, order: 1 },
+          { name: 'bộ', isDefault: false, order: 2 },
+          { name: 'hộp', isDefault: false, order: 3 },
+          { name: 'cuộn', isDefault: false, order: 4 },
+          { name: 'mét', isDefault: false, order: 5 },
+          { name: 'gói', isDefault: false, order: 6 },
+          { name: 'thanh', isDefault: false, order: 7 },
+          { name: 'kg', isDefault: false, order: 8 },
+        ];
         for (const u of defaultUnits) {
-          await prisma.unit.create({ data: { name: u, isDefault: true } }).catch(() => {});
+          await prisma.unit.create({ data: u }).catch(() => {});
         }
       }
     }

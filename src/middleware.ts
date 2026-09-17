@@ -9,6 +9,7 @@ const AUTH_COOKIE_NAME = 'h2t_auth_token';
 const PUBLIC_PATHS = [
   '/login',
   '/api/auth/login',
+  '/api/system/init-db',
   '/manifest.json',
   '/manifest.webmanifest',
   '/favicon.ico',
