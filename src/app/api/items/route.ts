@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { createSlug, removeVietnameseTones } from '@/lib/vietnamese';
 import { getDescendantLocationIds, generateUniqueCode } from '@/lib/inventory';
+import { canEdit } from '@/lib/permissions';
 import { z } from 'zod';
 
 const createItemSchema = z.object({
@@ -151,6 +152,13 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể tạo vật tư mới' },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json();
     const parsed = createItemSchema.safeParse(body);

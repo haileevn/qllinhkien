@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -24,13 +24,27 @@ import {
   Lock,
   FolderKanban,
   Coins,
+  Users,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useRouter } from 'next/navigation';
+import { getRoleConfig, isAdmin, canEdit } from '@/lib/permissions';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   if (pathname === '/login' || pathname.endsWith('/qr')) {
     return null;
@@ -46,13 +60,17 @@ export default function Sidebar() {
     }
   };
 
+  const roleInfo = getRoleConfig(user?.role);
+  const isUserAdmin = isAdmin(user?.role);
+  const userCanEdit = canEdit(user?.role);
+
   const navGroups = [
     {
       title: 'Quản lý kho',
       items: [
         { href: '/', label: 'Trang chủ', icon: Home, exact: true },
         { href: '/items', label: 'Tất cả vật tư', icon: Layers, exact: true },
-        { href: '/items/new', label: 'Thêm vật tư mới', icon: PlusCircle },
+        ...(userCanEdit ? [{ href: '/items/new', label: 'Thêm vật tư mới', icon: PlusCircle }] : []),
         { href: '/projects', label: 'Dự án & BOM Kit', icon: FolderKanban },
         { href: '/search', label: 'Tìm kiếm nhanh', icon: Search },
         { href: '/low-stock', label: 'Sắp hết & Hết hàng', icon: AlertTriangle, highlight: true },
@@ -79,8 +97,13 @@ export default function Sidebar() {
     {
       title: 'Hệ thống & Tài khoản',
       items: [
-        { href: '/settings/data', label: 'Sao lưu & Phục hồi', icon: Database },
-        { href: '/settings/password', label: 'Đổi mật khẩu Admin', icon: Lock },
+        ...(isUserAdmin
+          ? [{ href: '/settings/users', label: 'Quản lý người dùng', icon: Users }]
+          : []),
+        ...(isUserAdmin
+          ? [{ href: '/settings/data', label: 'Sao lưu & Phục hồi', icon: Database }]
+          : []),
+        { href: '/settings/password', label: 'Đổi mật khẩu', icon: Lock },
         { href: '/settings', label: 'Cài đặt chung', icon: Settings, exact: true },
       ],
     },
@@ -144,19 +167,25 @@ export default function Sidebar() {
 
       {/* Footer Profile & Logout */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200">
-            AD
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+            {user?.name?.slice(0, 2).toUpperCase() || user?.username?.slice(0, 2).toUpperCase() || 'AD'}
           </div>
-          <div className="text-xs">
-            <div className="font-semibold text-slate-800 dark:text-slate-200">Quản trị viên</div>
-            <div className="text-slate-400">admin</div>
+          <div className="text-xs min-w-0">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+              {user?.name || user?.username || 'Đang tải...'}
+            </div>
+            <div className="text-[11px] text-slate-400 truncate flex items-center gap-1">
+              <span>@{user?.username || 'user'}</span>
+              <span>&bull;</span>
+              <span className={`font-semibold ${roleInfo.badgeText}`}>{roleInfo.label}</span>
+            </div>
           </div>
         </div>
         <button
           onClick={handleLogout}
           title="Đăng xuất"
-          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0"
         >
           <LogOut className="w-4 h-4" />
         </button>

@@ -32,12 +32,14 @@ import QuantityModal from '@/components/QuantityModal';
 import MoveLocationModal from '@/components/MoveLocationModal';
 import { ITEM_CONDITIONS, TRANSACTION_TYPES } from '@/lib/inventory';
 import { detectShoppingPlatform } from '@/lib/shopping';
+import { canEdit } from '@/lib/permissions';
 
 export default function ItemDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [item, setItem] = useState<any>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,17 @@ export default function ItemDetailPage() {
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (id) fetchItemDetails();
@@ -288,42 +301,52 @@ export default function ItemDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setQuantityModalOpen(true)}
-                    className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/30 flex items-center gap-1.5 transition-all"
-                  >
-                    <span>Điều chỉnh số lượng</span>
-                  </button>
+                  {canEdit(currentUser?.role) ? (
+                    <button
+                      onClick={() => setQuantityModalOpen(true)}
+                      className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/30 flex items-center gap-1.5 transition-all"
+                    >
+                      <span>Điều chỉnh số lượng</span>
+                    </button>
+                  ) : (
+                    <span className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-xs font-semibold rounded-xl">
+                      Chế độ xem
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Action Buttons Row */}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
-              <Link
-                href={`/items/${item.id}/edit`}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <Edit className="w-3.5 h-3.5" />
-                <span>Sửa</span>
-              </Link>
+              {canEdit(currentUser?.role) && (
+                <>
+                  <Link
+                    href={`/items/${item.id}/edit`}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Sửa</span>
+                  </Link>
 
-              <Link
-                href={`/items/new?cloneFrom=${item.id}`}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                title="Tạo vật tư mới dựa trên thông số của vật tư này"
-              >
-                <Copy className="w-3.5 h-3.5 text-sky-500" />
-                <span>Nhân bản</span>
-              </Link>
+                  <Link
+                    href={`/items/new?cloneFrom=${item.id}`}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    title="Tạo vật tư mới dựa trên thông số của vật tư này"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Nhân bản</span>
+                  </Link>
 
-              <button
-                onClick={() => setMoveModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-purple-500" />
-                <span>Chuyển vị trí</span>
-              </button>
+                  <button
+                    onClick={() => setMoveModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-purple-500" />
+                    <span>Chuyển vị trí</span>
+                  </button>
+                </>
+              )}
 
               <Link
                 href={`/items/${item.id}/qr`}
@@ -346,13 +369,21 @@ export default function ItemDetailPage() {
                 </a>
               )}
 
-              <button
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-colors ml-auto"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Xóa</span>
-              </button>
+              {canEdit(currentUser?.role) && (
+                <button
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-colors ml-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa</span>
+                </button>
+              )}
+
+              {!canEdit(currentUser?.role) && (
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic ml-auto">
+                  Chế độ xem chỉ đọc (Viewer)
+                </span>
+              )}
             </div>
           </div>
         </div>

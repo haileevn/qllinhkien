@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { canEdit } from '@/lib/permissions';
 import { z } from 'zod';
 
 const adjustSchema = z.object({
@@ -13,6 +14,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể điều chỉnh số lượng kho' },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
     const body = await req.json();

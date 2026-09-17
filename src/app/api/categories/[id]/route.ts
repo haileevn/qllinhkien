@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { createSlug } from '@/lib/vietnamese';
+import { canEdit } from '@/lib/permissions';
 import { z } from 'zod';
 
 const updateCategorySchema = z.object({
@@ -53,6 +54,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
 
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể chỉnh sửa danh mục' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const parsed = updateCategorySchema.safeParse(body);
@@ -85,6 +93,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể xóa danh mục' },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
 

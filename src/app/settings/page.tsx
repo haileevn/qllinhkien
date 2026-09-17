@@ -17,8 +17,10 @@ import {
   Loader2,
   FolderKanban,
   Coins,
+  Users,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { getRoleConfig, isAdmin } from '@/lib/permissions';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -55,6 +57,8 @@ export default function SettingsPage() {
     }
   };
 
+  const roleInfo = getRoleConfig(user?.role);
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <Navbar title="Cài đặt hệ thống" />
@@ -63,15 +67,22 @@ export default function SettingsPage() {
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center font-black text-base shadow-md shadow-sky-500/20">
-            {user?.username?.slice(0, 2).toUpperCase() || 'AD'}
+            {user?.name?.slice(0, 2).toUpperCase() || user?.username?.slice(0, 2).toUpperCase() || 'AD'}
           </div>
           <div>
             <h2 className="font-bold text-slate-900 dark:text-white text-base">
               {user?.name || 'Quản trị viên H2T'}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Tài khoản: @{user?.username || 'admin'} &bull; Quyền: {user?.role || 'ADMIN'}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                @{user?.username || 'admin'}
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${roleInfo.badgeBg} ${roleInfo.badgeText} ${roleInfo.badgeBorder}`}
+              >
+                {roleInfo.label}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -79,10 +90,33 @@ export default function SettingsPage() {
       {/* Main Settings Sections */}
       <div className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-          Dữ liệu & Cấu hình kho
+          Hệ thống & Tài khoản
         </h3>
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 shadow-sm overflow-hidden">
+          {/* User Management & Roles */}
+          {isAdmin(user?.role) && (
+            <Link
+              href="/settings/users"
+              className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                    Quản lý người dùng & Phân quyền (RBAC)
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Tạo tài khoản phụ, phân quyền Quản trị, Quản lý kho hoặc Khách xem
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </Link>
+          )}
+
           {/* Data Backup & Restore */}
           <Link
             href="/settings/data"
@@ -157,10 +191,10 @@ export default function SettingsPage() {
               </div>
               <div>
                 <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                  Đổi mật khẩu tài khoản Admin
+                  Đổi mật khẩu tài khoản
                 </div>
                 <div className="text-xs text-slate-500">
-                  Cập nhật mật khẩu đăng nhập an toàn cho quản trị viên
+                  Cập nhật mật khẩu đăng nhập an toàn cho tài khoản đang dùng
                 </div>
               </div>
             </div>

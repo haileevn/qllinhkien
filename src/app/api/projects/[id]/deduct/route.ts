@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { canEdit } from '@/lib/permissions';
 
 export async function POST(
   req: NextRequest,
@@ -9,6 +10,13 @@ export async function POST(
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể thực hiện thao tác xuất kho BOM' },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
 

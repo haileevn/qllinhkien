@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { getLocationBreadcrumbs } from '@/lib/inventory';
 import { createSlug } from '@/lib/vietnamese';
+import { canEdit } from '@/lib/permissions';
 import { z } from 'zod';
 
 const updateItemSchema = z.object({
@@ -85,6 +86,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
 
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể chỉnh sửa vật tư' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
     const parsed = updateItemSchema.safeParse(body);
@@ -99,10 +107,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Không tìm thấy vật tư' }, { status: 404 });
     }
 
+    // Update slug if name changed
+    let slug = existing.slug;
+    if (data.name.trim() !== existing.name) {
+      let baseSlug = createSlug(data.name);
+      slug = baseSlug;
+      let count = 1;
+      while (
+        await prisma.item.findFirst({
+          where: { slug, NOT: { id } },
+        })
+      ) {
+        slug = `${baseSlug}-${count++}`;
+      }
+    }
+
     const updated = await prisma.item.update({
       where: { id },
       data: {
         name: data.name.trim(),
+        slug,
         categoryId: data.categoryId,
         locationId: data.locationId,
         unit: data.unit.trim(),
@@ -114,19 +138,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         condition: data.condition || 'NEW',
         container: data.container?.trim() || null,
         exactPosition: data.exactPosition?.trim() || null,
-        purchasePrice: data.purchasePrice || null,
+        purchasePrice: data.purchasePrice !== undefined ? data.purchasePrice : existing.purchasePrice,
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
         supplier: data.supplier?.trim() || null,
         notes: data.notes?.trim() || null,
         barcode: data.barcode?.trim() || null,
-        qrCodeValue: data.qrCodeValue !== undefined ? (data.qrCodeValue?.trim() || null) : existing.qrCodeValue,
-        purchaseUrl: data.purchaseUrl !== undefined ? (data.purchaseUrl?.trim() || null) : existing.purchaseUrl,
-        mainImage: data.mainImage || null,
+        qrCodeValue: data.qrCodeValue?.trim() || existing.qrCodeValue,
+        purchaseUrl: data.purchaseUrl?.trim() || null,
+        mainImage: data.mainImage !== undefined ? data.mainImage : existing.mainImage,
         isFavorite: data.isFavorite !== undefined ? data.isFavorite : existing.isFavorite,
       },
     });
 
-    // Update tags
+    // Update tags if provided
     if (data.tags !== undefined) {
       await prisma.itemTag.deleteMany({ where: { itemId: id } });
       for (const t of data.tags) {
@@ -174,6 +198,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!canEdit(user.role)) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn chỉ có quyền xem (Viewer), không thể xóa vật tư' },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
     await prisma.item.delete({ where: { id } });

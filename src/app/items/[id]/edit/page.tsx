@@ -7,12 +7,14 @@ import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
+import { canEdit } from '@/lib/permissions';
 
 export default function EditItemPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,19 +65,25 @@ export default function EditItemPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [itemRes, catsRes, locsRes, unitsRes] = await Promise.all([
+      const [userRes, itemRes, catsRes, locsRes, unitsRes] = await Promise.all([
+        fetch('/api/auth/me'),
         fetch(`/api/items/${id}`),
         fetch('/api/categories?format=flat'),
         fetch('/api/locations?format=flat'),
         fetch('/api/units'),
       ]);
 
-      const [itemData, catsData, locsData, unitsData] = await Promise.all([
+      const [userData, itemData, catsData, locsData, unitsData] = await Promise.all([
+        userRes.json(),
         itemRes.json(),
         catsRes.json(),
         locsRes.json(),
         unitsRes.json(),
       ]);
+
+      if (userData.authenticated && userData.user) {
+        setCurrentUser(userData.user);
+      }
 
       if (catsData.categories) setCategories(catsData.categories);
       if (locsData.locations) setLocations(locsData.locations);
@@ -179,6 +187,31 @@ export default function EditItemPage() {
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-2 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin text-sky-600" />
         <span className="text-xs">Đang tải biểu mẫu chỉnh sửa...</span>
+      </div>
+    );
+  }
+
+  if (currentUser && !canEdit(currentUser.role)) {
+    return (
+      <div className="max-w-md mx-auto space-y-5 pt-8 text-center">
+        <Navbar title="Chỉnh sửa vật tư" showBack backHref={`/items/${id}`} />
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto">
+            <TagIcon className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            Quyền xem chỉ đọc (Viewer)
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Tài khoản của bạn chỉ có quyền xem danh mục và tra cứu kho. Để sửa đổi thông tin vật tư, vui lòng liên hệ Quản trị viên để được nâng quyền.
+          </p>
+          <button
+            onClick={() => router.push(`/items/${id}`)}
+            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors"
+          >
+            Quay lại chi tiết vật tư
+          </button>
+        </div>
       </div>
     );
   }

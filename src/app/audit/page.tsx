@@ -22,11 +22,13 @@ import {
 import Navbar from '@/components/Navbar';
 import QRScannerModal from '@/components/QRScannerModal';
 import { removeVietnameseTones } from '@/lib/vietnamese';
+import { canEdit } from '@/lib/permissions';
 
 function AuditContent() {
   const searchParams = useSearchParams();
   const initialLocationId = searchParams.get('locationId') || '';
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState(initialLocationId);
   const [items, setItems] = useState<any[]>([]);
@@ -43,6 +45,14 @@ function AuditContent() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {});
     fetchLocations();
   }, []);
 
@@ -432,36 +442,47 @@ function AuditContent() {
 
                   {/* Fast Counter & Confirm Actions */}
                   <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                    <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        disabled={isAdjusting}
-                        onClick={() => adjustQty(item, -1)}
-                        className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
+                    {canEdit(currentUser?.role) ? (
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          disabled={isAdjusting}
+                          onClick={() => adjustQty(item, -1)}
+                          className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
 
-                      <div className="w-16 text-center font-black text-sm text-slate-900 dark:text-white">
-                        {isAdjusting ? (
-                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                        ) : (
-                          item.quantity
-                        )}
-                        <span className="text-[10px] font-normal text-slate-400 block -mt-1">
+                        <div className="w-16 text-center font-black text-sm text-slate-900 dark:text-white">
+                          {isAdjusting ? (
+                            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                          ) : (
+                            item.quantity
+                          )}
+                          <span className="text-[10px] font-normal text-slate-400 block -mt-1">
+                            {item.unit}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isAdjusting}
+                          onClick={() => adjustQty(item, 1)}
+                          className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-center">
+                        <div className="font-black text-sm text-slate-900 dark:text-white">
+                          {item.quantity}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block -mt-1">
                           {item.unit}
                         </span>
                       </div>
-
-                      <button
-                        type="button"
-                        disabled={isAdjusting}
-                        onClick={() => adjustQty(item, 1)}
-                        className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 active:scale-95 transition-transform"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
+                    )}
 
                     <button
                       type="button"

@@ -24,12 +24,15 @@ import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
+import { canEdit } from '@/lib/permissions';
 
 function NewItemForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const cloneFromId = searchParams.get('cloneFrom');
   const initialLocationId = searchParams.get('locationId');
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Basic Fields (Initially visible)
   const [name, setName] = useState('');
@@ -79,6 +82,15 @@ function NewItemForm() {
   const [isClone, setIsClone] = useState(false);
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {});
+
     if (!qrCodeValue) {
       setQrCodeValue(generateRandomItemCode());
     }
@@ -243,6 +255,31 @@ function NewItemForm() {
       setSubmitting(false);
     }
   };
+
+  if (currentUser && !canEdit(currentUser.role)) {
+    return (
+      <div className="max-w-md mx-auto space-y-5 pt-8 text-center">
+        <Navbar title="Thêm vật tư mới" showBack />
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto">
+            <TagIcon className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            Quyền xem chỉ đọc (Viewer)
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Tài khoản của bạn chỉ có quyền xem danh mục và tra cứu kho. Để thêm hoặc sửa vật tư, vui lòng liên hệ Quản trị viên để được nâng quyền.
+          </p>
+          <button
+            onClick={() => router.push('/items')}
+            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors"
+          >
+            Quay lại danh sách vật tư
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { createSlug } from '@/lib/vietnamese';
 import Papa from 'papaparse';
 
@@ -8,6 +9,13 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
+
+    if (!isAdmin(user.role)) {
+      return NextResponse.json(
+        { error: 'Chỉ Quản trị viên (Admin) mới có quyền phục hồi và nhập dữ liệu hệ thống' },
+        { status: 403 }
+      );
+    }
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
