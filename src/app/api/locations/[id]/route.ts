@@ -19,9 +19,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!user) return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
 
     const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu mã định danh vị trí' }, { status: 400 });
+    }
 
-    const location = await prisma.storageLocation.findUnique({
-      where: { id },
+    const location = await prisma.storageLocation.findFirst({
+      where: {
+        OR: [{ id }, { code: id }],
+      },
       include: {
         parent: {
           select: { id: true, name: true, code: true },
@@ -39,8 +44,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Không tìm thấy vị trí lưu trữ' }, { status: 404 });
     }
 
-    const breadcrumbs = await getLocationBreadcrumbs(id);
-    const descendantIds = await getDescendantLocationIds(id);
+    const breadcrumbs = await getLocationBreadcrumbs(location.id).catch(() => []);
+    const descendantIds = await getDescendantLocationIds(location.id).catch(() => [location.id]);
 
     // Get all items in this location and its sub-locations
     const items = await prisma.item.findMany({
@@ -51,20 +56,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         category: { select: { id: true, name: true, slug: true } },
         location: { select: { id: true, name: true, code: true } },
         tags: { include: { tag: true } },
+        images: { select: { id: true, url: true, isPrimary: true } },
       },
       orderBy: { name: 'asc' },
-    });
+    }).catch(() => []);
 
     return NextResponse.json({
       location,
-      breadcrumbs,
-      items,
-      totalItems: items.length,
-      descendantLocationCount: descendantIds.length - 1,
+      breadcrumbs: breadcrumbs || [],
+      items: items || [],
+      totalItems: items?.length || 0,
+      descendantLocationCount: Math.max(0, (descendantIds?.length || 1) - 1),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching location:', error);
-    return NextResponse.json({ error: 'Lỗi tải chi tiết vị trí' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Lỗi tải chi tiết vị trí',
+        message: error?.message || String(error),
+        code: error?.code,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -81,6 +94,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu mã định danh vị trí' }, { status: 400 });
+    }
+
+    const existing = await prisma.storageLocation.findFirst({
+      where: {
+        OR: [{ id }, { code: id }],
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Không tìm thấy vị trí lưu trữ' }, { status: 404 });
+    }
+
     const body = await req.json();
     const parsed = updateLocationSchema.safeParse(body);
     if (!parsed.success) {
@@ -88,19 +115,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Prevent making self as parent or creating cycle
-    if (parsed.data.parentId === id) {
+    if (parsed.data.parentId === existing.id) {
       return NextResponse.json({ error: 'Vị trí không thể làm cha của chính nó' }, { status: 400 });
     }
 
     if (parsed.data.parentId) {
-      const descendants = await getDescendantLocationIds(id);
+      const descendants = await getDescendantLocationIds(existing.id).catch(() => [existing.id]);
       if (descendants.includes(parsed.data.parentId)) {
         return NextResponse.json({ error: 'Không thể chọn vị trí con làm vị trí cha' }, { status: 400 });
       }
     }
 
     const updated = await prisma.storageLocation.update({
-      where: { id },
+      where: { id: existing.id },
       data: {
         name: parsed.data.name.trim(),
         code: parsed.data.code?.trim() || null,
@@ -111,9 +138,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json({ success: true, location: updated });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating location:', error);
-    return NextResponse.json({ error: 'Lỗi cập nhật vị trí' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Lỗi cập nhật vị trí', message: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -130,12 +160,25 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu mã định danh vị trí' }, { status: 400 });
+    }
+
+    const existing = await prisma.storageLocation.findFirst({
+      where: {
+        OR: [{ id }, { code: id }],
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Không tìm thấy vị trí lưu trữ' }, { status: 404 });
+    }
 
     // Check if there are items stored directly or in children
-    const descendantIds = await getDescendantLocationIds(id);
+    const descendantIds = await getDescendantLocationIds(existing.id).catch(() => [existing.id]);
     const itemsCount = await prisma.item.count({
       where: { locationId: { in: descendantIds } },
-    });
+    }).catch(() => 0);
 
     if (itemsCount > 0) {
       return NextResponse.json(
@@ -145,12 +188,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     await prisma.storageLocation.delete({
-      where: { id },
+      where: { id: existing.id },
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting location:', error);
-    return NextResponse.json({ error: 'Lỗi xóa vị trí lưu trữ' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Lỗi xóa vị trí lưu trữ', message: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }

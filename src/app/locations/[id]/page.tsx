@@ -73,9 +73,11 @@ export default function LocationDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
   const totalValuation = items.reduce(
-    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+    (sum, item) =>
+      sum +
+      (Number(item.purchasePrice) || Number(item.price) || 0) * (Number(item.quantity) || 0),
     0
   );
 
