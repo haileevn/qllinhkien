@@ -63,8 +63,11 @@ export async function POST(req: NextRequest) {
       files: results,
       file: results[0], // for single file compatibility
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Lỗi trong quá trình tải ảnh lên' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Lỗi trong quá trình tải ảnh lên' },
+      { status: 500 }
+    );
   }
 }

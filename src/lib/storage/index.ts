@@ -21,9 +21,9 @@ export class LocalStorageProvider implements StorageProvider {
 
   private async ensureDir() {
     try {
-      await fs.mkdir(this.uploadDir, { recursive: true });
-    } catch {
-      // ignore if exists
+      await fs.mkdir(this.uploadDir, { recursive: true, mode: 0o777 });
+    } catch (e: any) {
+      console.warn('ensureDir warning:', e?.message);
     }
   }
 
@@ -33,7 +33,13 @@ export class LocalStorageProvider implements StorageProvider {
     const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext.toLowerCase()}`;
     const targetPath = path.join(this.uploadDir, uniqueName);
 
-    await fs.writeFile(targetPath, buffer);
+    try {
+      await fs.writeFile(targetPath, buffer, { mode: 0o666 });
+    } catch (err: any) {
+      console.error('File write error in uploads directory:', err);
+      throw new Error(`Lỗi ghi tệp (${err?.code || err?.message}). Vui lòng kiểm tra quyền thư mục public/uploads.`);
+    }
+
     return {
       url: `/uploads/${uniqueName}`,
       path: uniqueName,
