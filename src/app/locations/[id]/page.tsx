@@ -21,9 +21,11 @@ import {
   Printer,
   ClipboardCheck,
   Coins,
+  Radio,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
+import NfcModal from '@/components/NfcModal';
 
 export default function LocationDetailPage() {
   const params = useParams();
@@ -37,6 +39,7 @@ export default function LocationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [descendantCount, setDescendantCount] = useState(0);
+  const [nfcModalOpen, setNfcModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchLocationDetails();
@@ -111,6 +114,16 @@ export default function LocationDetailPage() {
         backHref="/locations"
         action={
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNfcModalOpen(true)}
+              className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-medium flex items-center gap-1 border border-indigo-200 dark:border-indigo-800/80 transition-colors"
+              title="Ghi thẻ NFC / Tem thông minh cho vị trí hoặc tủ này"
+            >
+              <Radio className="w-4 h-4" />
+              <span className="hidden sm:inline">Thẻ NFC</span>
+            </button>
+
             <Link
               href={`/locations/${location.id}/qr`}
               className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium flex items-center gap-1 border border-slate-200 dark:border-slate-800"
@@ -297,6 +310,18 @@ export default function LocationDetailPage() {
           </div>
         )}
       </section>
+
+      {/* NFC Tag Writer Modal */}
+      {nfcModalOpen && (
+        <NfcModal
+          isOpen={nfcModalOpen}
+          onClose={() => setNfcModalOpen(false)}
+          title={`Vị trí: ${location.name}`}
+          subtitle={fullPath}
+          code={location.code || location.name}
+          urlPath={`/locations/${location.id}`}
+        />
+      )}
     </div>
   );
 }

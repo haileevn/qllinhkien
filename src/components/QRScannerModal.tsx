@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Camera, Image as ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Camera, Image as ImageIcon, AlertCircle, Loader2, Radio } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
 
 interface QRScannerModalProps {
   isOpen: boolean;
@@ -16,34 +17,52 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [nfcActive, setNfcActive] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const nfcAbortRef = useRef<AbortController | null>(null);
   const readerElementId = 'qr-camera-reader-view';
 
   const handleResult = async (decodedText: string) => {
     if (loading) return;
     setLoading(true);
 
+    const cleanText = decodedText.trim();
+
     if (onScanSuccess) {
-      onScanSuccess(decodedText);
-      stopScanner();
+      onScanSuccess(cleanText);
+      await stopScanner();
+      stopNfc();
       onClose();
       return;
     }
 
     try {
-      // Look up barcode / QR directly via API
-      const res = await fetch(`/api/barcode/${encodeURIComponent(decodedText)}`);
+      if (cleanText.startsWith('http://') || cleanText.startsWith('https://')) {
+        try {
+          const urlObj = new URL(cleanText);
+          if (urlObj.pathname.startsWith('/items/') || urlObj.pathname.startsWith('/locations/')) {
+            await stopScanner();
+            stopNfc();
+            onClose();
+            router.push(urlObj.pathname);
+            return;
+          }
+        } catch {}
+      }
+
+      const res = await fetch(`/api/barcode/${encodeURIComponent(cleanText)}`);
       const data = await res.json();
 
       if (res.ok && data.url) {
-        stopScanner();
+        await stopScanner();
+        stopNfc();
         onClose();
         router.push(data.url);
       } else {
-        // Fallback: If it is not in db, redirect to search with this barcode
-        stopScanner();
+        await stopScanner();
+        stopNfc();
         onClose();
-        router.push(`/search?q=${encodeURIComponent(decodedText)}`);
+        router.push(`/search?q=${encodeURIComponent(cleanText)}`);
       }
     } catch (err) {
       setErrorMsg('Không thể tra cứu mã này');
@@ -120,18 +139,65 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
     }
   };
 
+  const startNfc = async () => {
+    if (!isNfcSupported() || !window.NDEFReader) return;
+
+    try {
+      const controller = new AbortController();
+      nfcAbortRef.current = controller;
+      const ndef = new window.NDEFReader();
+      await ndef.scan({ signal: controller.signal });
+      setNfcActive(true);
+
+      ndef.addEventListener('reading', (event: any) => {
+        let textFound: string | null = null;
+        if (event.message?.records) {
+          for (const record of event.message.records) {
+            const decoded = decodeNdefRecord(record);
+            if (decoded) {
+              textFound = decoded;
+              break;
+            }
+          }
+        }
+        if (!textFound && event.serialNumber) {
+          textFound = event.serialNumber;
+        }
+        if (textFound) {
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            navigator.vibrate([100, 50, 100]);
+          }
+          handleResult(textFound);
+        }
+      });
+    } catch {
+      setNfcActive(false);
+    }
+  };
+
+  const stopNfc = () => {
+    if (nfcAbortRef.current) {
+      nfcAbortRef.current.abort();
+      nfcAbortRef.current = null;
+    }
+    setNfcActive(false);
+  };
+
   useEffect(() => {
     if (isOpen) {
       // Small timeout to allow DOM node to render
       const t = setTimeout(() => {
         startScanner();
+        startNfc();
       }, 150);
       return () => {
         clearTimeout(t);
         stopScanner();
+        stopNfc();
       };
     } else {
       stopScanner();
+      stopNfc();
     }
   }, [isOpen]);
 
@@ -145,12 +211,13 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
           <div className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-sky-600 dark:text-sky-400" />
             <h2 className="font-bold text-slate-900 dark:text-white text-base">
-              Quét Barcode / Mã QR
+              Quét Barcode / QR / NFC
             </h2>
           </div>
           <button
             onClick={() => {
               stopScanner();
+              stopNfc();
               onClose();
             }}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -176,6 +243,16 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
           <div className="p-3 mx-4 mt-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {nfcActive && (
+          <div className="px-4 py-2 mx-4 mt-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 text-[11px] flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+              <span>NFC sẵn sàng:</span>
+            </div>
+            <span>Có thể áp thẻ vào lưng điện thoại để đọc ngay</span>
           </div>
         )}
 

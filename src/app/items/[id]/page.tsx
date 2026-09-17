@@ -26,10 +26,12 @@ import {
   Minus,
   ShoppingCart,
   ExternalLink,
+  Radio,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import QuantityModal from '@/components/QuantityModal';
 import MoveLocationModal from '@/components/MoveLocationModal';
+import NfcModal from '@/components/NfcModal';
 import { ITEM_CONDITIONS, TRANSACTION_TYPES } from '@/lib/inventory';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { canEdit } from '@/lib/permissions';
@@ -51,6 +53,7 @@ export default function ItemDetailPage() {
   const [quantityModalOpen, setQuantityModalOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [nfcModalOpen, setNfcModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -356,6 +359,16 @@ export default function ItemDetailPage() {
                 <span>In tem QR</span>
               </Link>
 
+              <button
+                type="button"
+                onClick={() => setNfcModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-indigo-200 dark:border-indigo-800/80"
+                title="Ghi liên kết vật tư này vào thẻ NFC / tem thông minh dán trên hộp"
+              >
+                <Radio className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Ghi thẻ NFC</span>
+              </button>
+
               {item.purchaseUrl && (
                 <a
                   href={item.purchaseUrl}
@@ -611,6 +624,17 @@ export default function ItemDetailPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* NFC Writer Modal */}
+      {nfcModalOpen && (
+        <NfcModal
+          isOpen={nfcModalOpen}
+          onClose={() => setNfcModalOpen(false)}
+          title={item.name}
+          subtitle={fullLocationPath}
+          code={item.sku || item.name}
+          urlPath={`/items/${item.id}`}
+        />
       )}
     </div>
   );
