@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
+import { ensureDatabaseReady } from './db-bootstrap';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'h2t_super_secret_jwt_key_2026_home_inventory';
 const encodedSecret = new TextEncoder().encode(JWT_SECRET);
@@ -41,6 +42,9 @@ export async function verifySessionToken(token: string): Promise<UserSessionPayl
 
 export async function getCurrentUser(): Promise<UserSessionPayload | null> {
   try {
+    // Lazily self-heal and migrate schema if not yet done
+    ensureDatabaseReady().catch(() => {});
+
     const cookieStore = await cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
     if (!token) return null;

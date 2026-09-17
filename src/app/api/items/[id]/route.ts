@@ -69,15 +69,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Không tìm thấy vật tư' }, { status: 404 });
     }
 
-    const breadcrumbs = await getLocationBreadcrumbs(item.locationId);
+    const breadcrumbs = await getLocationBreadcrumbs(item.locationId).catch(() => []);
 
     return NextResponse.json({
       item,
-      breadcrumbs,
+      breadcrumbs: breadcrumbs || [],
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching item details:', error);
-    return NextResponse.json({ error: 'Lỗi tải thông tin vật tư' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Lỗi tải thông tin vật tư', message: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }
 

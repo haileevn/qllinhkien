@@ -26,15 +26,22 @@ export async function GET(req: NextRequest) {
         images: { take: 1, orderBy: { order: 'asc' } },
       },
       orderBy: { updatedAt: 'desc' },
+    }).catch((err) => {
+      console.error('Search query items error:', err);
+      return [];
     });
 
     // Fetch all locations to compute full breadcrumb path quickly
     const allLocations = await prisma.storageLocation.findMany({
       select: { id: true, name: true, code: true, description: true, parentId: true },
+    }).catch((err) => {
+      console.error('Search query locations error:', err);
+      return [];
     });
     const locMap = new Map(allLocations.map((l) => [l.id, l]));
 
     function getBreadcrumbString(locId: string): string {
+      if (!locId) return '';
       const names: string[] = [];
       let cur: string | null = locId;
       const visited = new Set<string>();
@@ -49,10 +56,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Filter items with token matching
-    const matchingItems = items.filter((item) => {
+    const matchingItems = (items || []).filter((item) => {
       const locationPathStr = getBreadcrumbString(item.locationId);
       const searchBlob = [
-        item.name,
+        item.name || '',
         item.sku || '',
         item.description || '',
         item.brand || '',
@@ -64,7 +71,7 @@ export async function GET(req: NextRequest) {
         item.exactPosition || '',
         item.barcode || '',
         item.notes || '',
-        ...(item.tags?.map((t) => t.tag.name) || []),
+        ...((item.tags || []).map((t) => t.tag?.name || '').filter(Boolean)),
       ].join(' ');
 
       const cleanBlob = removeVietnameseTones(searchBlob);
@@ -98,13 +105,13 @@ export async function GET(req: NextRequest) {
         stockStatus,
         stockLabel,
         condition: item.condition,
-        mainImage: item.mainImage || (item.images.length > 0 ? item.images[0].url : null),
+        mainImage: item.mainImage || (item.images && item.images.length > 0 ? item.images[0].url : null),
         category: item.category,
         location: item.location,
         locationPath,
         container: item.container,
         exactPosition: item.exactPosition,
-        tags: item.tags.map((t) => t.tag.name),
+        tags: (item.tags || []).map((t) => t.tag?.name).filter(Boolean),
         barcode: item.barcode,
         isFavorite: item.isFavorite,
       };
@@ -122,23 +129,26 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { updatedAt: 'desc' },
+    }).catch((err) => {
+      console.error('Search query projects error:', err);
+      return [];
     });
 
-    const matchingProjects = allProjects.filter((proj) => {
-      const bomItemNames = proj.items.map((i) => i.item?.name || '').join(' ');
+    const matchingProjects = (allProjects || []).filter((proj) => {
+      const bomItemNames = (proj.items || []).map((i) => i.item?.name || '').join(' ');
       const searchBlob = [
-        proj.name,
+        proj.name || '',
         proj.description || '',
         proj.notes || '',
-        proj.status,
+        proj.status || '',
         bomItemNames,
       ].join(' ');
 
       const cleanBlob = removeVietnameseTones(searchBlob);
       return qTokens.every((tok) => cleanBlob.includes(tok));
     }).map((proj) => {
-      const totalRequired = proj.items.length;
-      const fulfilledCount = proj.items.filter((i) => (i.item?.quantity ?? 0) >= i.requiredQuantity).length;
+      const totalRequired = proj.items?.length || 0;
+      const fulfilledCount = (proj.items || []).filter((i) => (i.item?.quantity ?? 0) >= i.requiredQuantity).length;
       const isReady = totalRequired > 0 && fulfilledCount === totalRequired;
 
       return {
@@ -157,9 +167,9 @@ export async function GET(req: NextRequest) {
     });
 
     // Also search locations
-    const matchingLocations = allLocations.filter((loc) => {
+    const matchingLocations = (allLocations || []).filter((loc) => {
       const pathStr = getBreadcrumbString(loc.id);
-      const searchBlob = [loc.name, loc.code || '', loc.description || '', pathStr].join(' ');
+      const searchBlob = [loc.name || '', loc.code || '', loc.description || '', pathStr].join(' ');
       const cleanBlob = removeVietnameseTones(searchBlob);
       return qTokens.every((tok) => cleanBlob.includes(tok));
     }).map((loc) => ({
@@ -183,8 +193,18 @@ export async function GET(req: NextRequest) {
       },
       total: results.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Search error:', error);
-    return NextResponse.json({ error: 'Lỗi tìm kiếm' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Lỗi tìm kiếm',
+        message: error?.message || String(error),
+        results: [],
+        projects: [],
+        locations: [],
+        total: 0,
+      },
+      { status: 500 }
+    );
   }
 }

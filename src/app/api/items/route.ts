@@ -101,6 +101,9 @@ export async function GET(req: NextRequest) {
         images: { orderBy: { order: 'asc' } },
       },
       orderBy,
+    }).catch((err) => {
+      console.error('Error querying items:', err);
+      return [];
     });
 
     // Client-side / in-memory status filter for accurate low stock condition
@@ -119,7 +122,7 @@ export async function GET(req: NextRequest) {
 
       items = items.filter((item) => {
         const searchableFields = [
-          item.name,
+          item.name || '',
           item.sku || '',
           item.description || '',
           item.brand || '',
@@ -130,7 +133,7 @@ export async function GET(req: NextRequest) {
           item.exactPosition || '',
           item.barcode || '',
           item.notes || '',
-          ...(item.tags?.map((t) => t.tag.name) || []),
+          ...(item.tags?.map((t) => t.tag?.name || '') || []),
         ].join(' ');
 
         const cleanField = removeVietnameseTones(searchableFields);
@@ -139,12 +142,15 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      items,
-      total: items.length,
+      items: items || [],
+      total: items?.length || 0,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching items:', error);
-    return NextResponse.json({ error: 'Lỗi tải danh sách vật tư' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Lỗi tải danh sách vật tư', message: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }
 
