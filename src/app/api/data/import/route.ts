@@ -36,7 +36,15 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { categories = [], locations = [], units = [], tags = [], items = [], transactions = [] } = jsonContent.data;
+      const {
+        categories = [],
+        locations = [],
+        units = [],
+        tags = [],
+        items = [],
+        transactions = [],
+        projects = [],
+      } = jsonContent.data;
 
       if (isDryRun) {
         return NextResponse.json({
@@ -50,6 +58,7 @@ export async function POST(req: NextRequest) {
             tags: tags.length,
             items: items.length,
             transactions: transactions.length,
+            projects: projects.length,
           },
         });
       }
@@ -138,6 +147,7 @@ export async function POST(req: NextRequest) {
             container: itemData.container,
             exactPosition: itemData.exactPosition,
             purchasePrice: itemData.purchasePrice,
+            purchaseUrl: itemData.purchaseUrl || null,
             purchaseDate: itemData.purchaseDate ? new Date(itemData.purchaseDate) : null,
             supplier: itemData.supplier,
             notes: itemData.notes,
@@ -164,6 +174,7 @@ export async function POST(req: NextRequest) {
             container: itemData.container,
             exactPosition: itemData.exactPosition,
             purchasePrice: itemData.purchasePrice,
+            purchaseUrl: itemData.purchaseUrl || null,
             purchaseDate: itemData.purchaseDate ? new Date(itemData.purchaseDate) : null,
             supplier: itemData.supplier,
             notes: itemData.notes,
@@ -185,9 +196,60 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Safe Upsert for Projects & ProjectItems
+      for (const proj of projects) {
+        const { items: projItems = [], ...projData } = proj;
+        await prisma.project.upsert({
+          where: { id: proj.id },
+          update: {
+            name: projData.name,
+            slug: projData.slug,
+            description: projData.description,
+            status: projData.status,
+            targetDate: projData.targetDate ? new Date(projData.targetDate) : null,
+            budget: projData.budget,
+            notes: projData.notes,
+          },
+          create: {
+            id: projData.id,
+            name: projData.name,
+            slug: projData.slug,
+            description: projData.description,
+            status: projData.status,
+            targetDate: projData.targetDate ? new Date(projData.targetDate) : null,
+            budget: projData.budget,
+            notes: projData.notes,
+          },
+        });
+
+        // Upsert project BOM items
+        if (Array.isArray(projItems)) {
+          for (const pItem of projItems) {
+            await prisma.projectItem.upsert({
+              where: { id: pItem.id },
+              update: {
+                requiredQuantity: pItem.requiredQuantity,
+                fulfilledQuantity: pItem.fulfilledQuantity,
+                isDeducted: pItem.isDeducted,
+                notes: pItem.notes,
+              },
+              create: {
+                id: pItem.id,
+                projectId: pItem.projectId,
+                itemId: pItem.itemId,
+                requiredQuantity: pItem.requiredQuantity,
+                fulfilledQuantity: pItem.fulfilledQuantity,
+                isDeducted: pItem.isDeducted,
+                notes: pItem.notes,
+              },
+            });
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
-        message: `Đã khôi phục thành công ${items.length} vật tư, ${categories.length} danh mục, ${locations.length} vị trí.`,
+        message: `Đã khôi phục thành công ${items.length} vật tư, ${projects.length} dự án, ${categories.length} danh mục, ${locations.length} vị trí.`,
       });
     }
 
@@ -258,6 +320,7 @@ export async function POST(req: NextRequest) {
         const container = row['Tủ / Kệ'] || row['container'] || null;
         const exactPosition = row['Ngăn / Hộp / Vị trí chi tiết'] || row['exact_position'] || null;
         const purchasePrice = parseFloat(row['Giá mua'] || row['price'] || '0') || null;
+        const purchaseUrl = row['Link mua hàng'] || row['purchase_url'] || row['purchaseUrl'] || row['url'] || null;
         const notes = row['Ghi chú'] || row['notes'] || null;
         const barcode = row['Mã vạch'] || row['barcode'] || null;
         const rawTags = (row['Thẻ (Tags)'] || row['tags'] || '')
@@ -279,6 +342,7 @@ export async function POST(req: NextRequest) {
           container: container?.trim() || null,
           exactPosition: exactPosition?.trim() || null,
           purchasePrice,
+          purchaseUrl: purchaseUrl?.trim() || null,
           notes: notes?.trim() || null,
           barcode: barcode?.trim() || null,
           tags: rawTags,
@@ -326,6 +390,7 @@ export async function POST(req: NextRequest) {
             container: itemData.container,
             exactPosition: itemData.exactPosition,
             purchasePrice: itemData.purchasePrice,
+            purchaseUrl: itemData.purchaseUrl,
             notes: itemData.notes,
             barcode: itemData.barcode,
             qrCodeValue,

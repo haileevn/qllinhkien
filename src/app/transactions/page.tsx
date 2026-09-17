@@ -14,6 +14,9 @@ import {
   Calendar,
   Clock,
   Package,
+  Download,
+  Search,
+  X,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { TRANSACTION_TYPES } from '@/lib/inventory';
@@ -24,18 +27,20 @@ function TransactionsContent() {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || '');
+  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     fetchTransactions();
-  }, [selectedType, page]);
+  }, [selectedType, searchQuery, page]);
 
   const fetchTransactions = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (selectedType) params.set('type', selectedType);
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
       params.set('page', String(page));
       params.set('limit', '40');
 
@@ -53,9 +58,29 @@ function TransactionsContent() {
     }
   };
 
+  const handleExportCsv = () => {
+    const params = new URLSearchParams();
+    if (selectedType) params.set('type', selectedType);
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    params.set('format', 'csv');
+    window.open(`/api/transactions?${params.toString()}`, '_blank');
+  };
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
-      <Navbar title="Lịch sử biến động kho" />
+      <Navbar
+        title="Lịch sử biến động kho"
+        action={
+          <button
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+            title="Xuất lịch sử biến động ra file CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Xuất CSV</span>
+          </button>
+        }
+      />
 
       {/* Summary Stats Header */}
       {summary && (
@@ -85,79 +110,107 @@ function TransactionsContent() {
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm col-span-2">
             <div className="text-xs font-bold text-slate-400 mb-1">Quy tắc ghi vết</div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Mọi hoạt động xuất nhập, đổi vị trí, kiểm kê đều tự động lưu vết để tra cứu thời gian và lý do.
+              Mọi hoạt động xuất nhập, đổi vị trí, kiểm kê hay xuất linh kiện cho dự án BOM đều được tự động lưu vết chính xác.
             </p>
           </div>
         </div>
       )}
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs overflow-x-auto">
-        <button
-          onClick={() => {
-            setSelectedType('');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-            !selectedType
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          Tất cả biến động
-        </button>
-        <button
-          onClick={() => {
-            setSelectedType('IN');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-            selectedType === 'IN'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          + Nhập thêm
-        </button>
-        <button
-          onClick={() => {
-            setSelectedType('OUT');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-            selectedType === 'OUT'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          - Đã dùng / Xuất
-        </button>
-        <button
-          onClick={() => {
-            setSelectedType('MOVE');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-            selectedType === 'MOVE'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          → Chuyển vị trí
-        </button>
-        <button
-          onClick={() => {
-            setSelectedType('ADJUSTMENT');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-            selectedType === 'ADJUSTMENT'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          ± Điều chỉnh kiểm kê
-        </button>
+      {/* Search Input and Filters */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Tìm theo tên linh kiện, SKU, lý do, người tạo... (không dấu)"
+            className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setPage(1);
+              }}
+              className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-2 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs overflow-x-auto">
+          <button
+            onClick={() => {
+              setSelectedType('');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+              !selectedType
+                ? 'bg-sky-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            Tất cả biến động
+          </button>
+          <button
+            onClick={() => {
+              setSelectedType('IN');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+              selectedType === 'IN'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            + Nhập thêm
+          </button>
+          <button
+            onClick={() => {
+              setSelectedType('OUT');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+              selectedType === 'OUT'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            - Đã dùng / Xuất
+          </button>
+          <button
+            onClick={() => {
+              setSelectedType('MOVE');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+              selectedType === 'MOVE'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            → Chuyển vị trí
+          </button>
+          <button
+            onClick={() => {
+              setSelectedType('ADJUSTMENT');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+              selectedType === 'ADJUSTMENT'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            ± Điều chỉnh kiểm kê
+          </button>
+        </div>
       </div>
 
       {/* Transactions Timeline List */}

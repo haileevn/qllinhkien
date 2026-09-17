@@ -16,6 +16,9 @@ import {
   Package,
   X,
   Check,
+  Printer,
+  ClipboardCheck,
+  Coins,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -25,6 +28,11 @@ interface LocationNode {
   code: string | null;
   description: string | null;
   parentId: string | null;
+  directValue?: number;
+  directQuantity?: number;
+  totalValue?: number;
+  totalQuantity?: number;
+  totalItemsCount?: number;
   _count: { items: number; children: number };
   childrenList?: LocationNode[];
 }
@@ -126,10 +134,15 @@ export default function LocationsPage() {
     setAddModalOpen(true);
   };
 
+  const totalLocationsCount = allLocations.length;
+  const totalItemsCount = allLocations.reduce((sum, l) => sum + (l._count?.items || 0), 0);
+  const totalValuation = allLocations.reduce((sum, l) => sum + (l.directValue || 0), 0);
+
   // Recursive Tree Node Renderer
   const renderTreeNode = (node: LocationNode, depth = 0) => {
     const isExpanded = !!expandedNodes[node.id];
     const hasChildren = node.childrenList && node.childrenList.length > 0;
+    const hasSubtreeItems = (node.totalItemsCount || 0) > node._count.items;
 
     return (
       <div key={node.id} className="select-none">
@@ -139,7 +152,7 @@ export default function LocationsPage() {
           }`}
           style={{ paddingLeft: `${Math.max(12, depth * 22 + 12)}px` }}
         >
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {hasChildren ? (
               <button
                 onClick={(e) => toggleExpand(node.id, e)}
@@ -152,7 +165,7 @@ export default function LocationsPage() {
                 )}
               </button>
             ) : (
-              <span className="w-4 h-4 inline-block" />
+              <span className="w-4 h-4 inline-block shrink-0" />
             )}
 
             <Link
@@ -178,9 +191,26 @@ export default function LocationsPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Direct items count badge */}
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800">
-              {node._count.items} vật tư
+            {/* Valuation badge if any */}
+            {(node.totalValue || 0) > 0 && (
+              <span className="hidden sm:inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                {(node.totalValue || 0).toLocaleString('vi-VN')} đ
+              </span>
+            )}
+
+            {/* Direct & recursive items count badge */}
+            <span
+              title={
+                hasSubtreeItems
+                  ? `${node._count.items} món trực tiếp + ${
+                      (node.totalItemsCount || 0) - node._count.items
+                    } món trong ngăn con`
+                  : `${node._count.items} vật tư`
+              }
+              className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800"
+            >
+              {node._count.items}
+              {hasSubtreeItems ? ` (+${(node.totalItemsCount || 0) - node._count.items})` : ''} vật tư
             </span>
 
             {/* Quick action buttons */}
@@ -194,8 +224,24 @@ export default function LocationsPage() {
               </button>
 
               <Link
+                href={`/print-labels?locationId=${node.id}`}
+                title="In tem nhãn toàn bộ ngăn này"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700"
+              >
+                <Printer className="w-3.5 h-3.5" />
+              </Link>
+
+              <Link
+                href={`/audit?locationId=${node.id}`}
+                title="Kiểm kê khu vực này"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-700"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+              </Link>
+
+              <Link
                 href={`/locations/${node.id}/qr`}
-                title="In tem QR vị trí"
+                title="In tem QR định danh vị trí"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700"
               >
                 <QrCode className="w-3.5 h-3.5" />
@@ -231,6 +277,45 @@ export default function LocationsPage() {
           </button>
         }
       />
+
+      {/* KPI Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Tổng số vị trí & ngăn</div>
+            <div className="text-lg font-black text-slate-900 dark:text-white">
+              {totalLocationsCount} <span className="text-xs font-normal text-slate-400">khu vực</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center shrink-0">
+            <Package className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Vật tư đã xếp kho</div>
+            <div className="text-lg font-black text-slate-900 dark:text-white">
+              {totalItemsCount} <span className="text-xs font-normal text-slate-400">mặt hàng</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Tổng giá trị định giá</div>
+            <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+              {totalValuation.toLocaleString('vi-VN')} <span className="text-xs font-normal">đ</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Description banner */}
       <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 border border-sky-100 dark:border-slate-800 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-300">

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch all locations to compute full breadcrumb path quickly
     const allLocations = await prisma.storageLocation.findMany({
-      select: { id: true, name: true, code: true, parentId: true },
+      select: { id: true, name: true, code: true, description: true, parentId: true },
     });
     const locMap = new Map(allLocations.map((l) => [l.id, l]));
 
@@ -110,9 +110,77 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // Also search projects with BOM items
+    const allProjects = await prisma.project.findMany({
+      include: {
+        items: {
+          include: {
+            item: {
+              select: { id: true, name: true, sku: true, quantity: true, unit: true },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const matchingProjects = allProjects.filter((proj) => {
+      const bomItemNames = proj.items.map((i) => i.item?.name || '').join(' ');
+      const searchBlob = [
+        proj.name,
+        proj.description || '',
+        proj.notes || '',
+        proj.status,
+        bomItemNames,
+      ].join(' ');
+
+      const cleanBlob = removeVietnameseTones(searchBlob);
+      return qTokens.every((tok) => cleanBlob.includes(tok));
+    }).map((proj) => {
+      const totalRequired = proj.items.length;
+      const fulfilledCount = proj.items.filter((i) => (i.item?.quantity ?? 0) >= i.requiredQuantity).length;
+      const isReady = totalRequired > 0 && fulfilledCount === totalRequired;
+
+      return {
+        id: proj.id,
+        name: proj.name,
+        slug: proj.slug,
+        description: proj.description,
+        status: proj.status,
+        targetDate: proj.targetDate,
+        budget: proj.budget,
+        itemCount: totalRequired,
+        fulfilledCount,
+        isReady,
+        updatedAt: proj.updatedAt,
+      };
+    });
+
+    // Also search locations
+    const matchingLocations = allLocations.filter((loc) => {
+      const pathStr = getBreadcrumbString(loc.id);
+      const searchBlob = [loc.name, loc.code || '', loc.description || '', pathStr].join(' ');
+      const cleanBlob = removeVietnameseTones(searchBlob);
+      return qTokens.every((tok) => cleanBlob.includes(tok));
+    }).map((loc) => ({
+      id: loc.id,
+      name: loc.name,
+      code: loc.code,
+      description: loc.description,
+      path: getBreadcrumbString(loc.id),
+    }));
+
     return NextResponse.json({
       query: q,
       results,
+      projects: matchingProjects,
+      locations: matchingLocations,
+      stats: {
+        itemsCount: results.length,
+        projectsCount: matchingProjects.length,
+        locationsCount: matchingLocations.length,
+        total: results.length + matchingProjects.length + matchingLocations.length,
+      },
       total: results.length,
     });
   } catch (error) {

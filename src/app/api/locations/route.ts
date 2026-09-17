@@ -25,18 +25,62 @@ export async function GET(req: NextRequest) {
         _count: {
           select: { items: true, children: true },
         },
+        items: {
+          select: { quantity: true, purchasePrice: true },
+        },
       },
       orderBy: { name: 'asc' },
     });
 
-    if (format === 'flat') {
-      return NextResponse.json({ locations });
+    interface LocationNode {
+      id: string;
+      name: string;
+      code: string | null;
+      description: string | null;
+      image: string | null;
+      parentId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      _count: { items: number; children: number };
+      directValue: number;
+      directQuantity: number;
+      totalValue: number;
+      totalItemsCount: number;
+      totalQuantity: number;
+      childrenList?: LocationNode[];
     }
 
-    // Build hierarchical tree
-    type LocationNode = (typeof locations)[0] & { childrenList?: LocationNode[]; totalItemsCount?: number };
+    // Compute direct metrics for each location
+    const locationsWithDirectMetrics: LocationNode[] = locations.map((loc) => {
+      const directValue = loc.items.reduce(
+        (sum: number, it) => sum + (it.quantity || 0) * (it.purchasePrice || 0),
+        0
+      );
+      const directQuantity = loc.items.reduce(
+        (sum: number, it) => sum + (it.quantity || 0),
+        0
+      );
+      return {
+        id: loc.id,
+        name: loc.name,
+        code: loc.code,
+        description: loc.description,
+        image: loc.image,
+        parentId: loc.parentId,
+        createdAt: loc.createdAt,
+        updatedAt: loc.updatedAt,
+        _count: loc._count,
+        directValue,
+        directQuantity,
+        totalValue: directValue,
+        totalItemsCount: loc._count.items,
+        totalQuantity: directQuantity,
+        childrenList: [],
+      };
+    });
+
     const locMap = new Map<string, LocationNode>();
-    locations.forEach((l) => locMap.set(l.id, { ...l, childrenList: [] }));
+    locationsWithDirectMetrics.forEach((l) => locMap.set(l.id, l));
 
     const rootNodes: LocationNode[] = [];
 
@@ -48,7 +92,50 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({ tree: rootNodes, locations });
+    // Recursively sum descendant values and counts
+    function aggregateSubtree(node: LocationNode): {
+      totalValue: number;
+      totalItemsCount: number;
+      totalQuantity: number;
+    } {
+      let sumVal = node.directValue;
+      let sumCount = node._count.items;
+      let sumQty = node.directQuantity;
+
+      if (node.childrenList && node.childrenList.length > 0) {
+        for (const child of node.childrenList) {
+          const childStats = aggregateSubtree(child);
+          sumVal += childStats.totalValue;
+          sumCount += childStats.totalItemsCount;
+          sumQty += childStats.totalQuantity;
+        }
+      }
+
+      node.totalValue = sumVal;
+      node.totalItemsCount = sumCount;
+      node.totalQuantity = sumQty;
+
+      return { totalValue: sumVal, totalItemsCount: sumCount, totalQuantity: sumQty };
+    }
+
+    rootNodes.forEach(aggregateSubtree);
+
+    if (format === 'flat') {
+      return NextResponse.json({
+        locations: Array.from(locMap.values()).map((l) => {
+          const { childrenList, ...rest } = l;
+          return rest;
+        }),
+      });
+    }
+
+    return NextResponse.json({
+      tree: rootNodes,
+      locations: Array.from(locMap.values()).map((l) => {
+        const { childrenList, ...rest } = l;
+        return rest;
+      }),
+    });
   } catch (error) {
     console.error('Error fetching locations:', error);
     return NextResponse.json({ error: 'Lỗi tải danh sách vị trí' }, { status: 500 });

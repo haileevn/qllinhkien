@@ -10,9 +10,15 @@ import {
   Plus,
   Loader2,
   Filter,
+  Coins,
+  ArrowRight,
+  ShoppingCart,
+  ExternalLink,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
+import { detectShoppingPlatform } from '@/lib/shopping';
+import { clsx } from 'clsx';
 
 function LowStockContent() {
   const searchParams = useSearchParams();
@@ -56,32 +62,64 @@ function LowStockContent() {
   const outOfStockCount = items.filter((i) => i.quantity === 0).length;
   const lowStockCount = items.filter((i) => i.quantity > 0 && i.quantity <= i.minimumQuantity).length;
 
+  // Compute total estimated reorder budget
+  const totalReorderEstimate = items.reduce((sum, item) => {
+    const deficit = Math.max(0, item.minimumQuantity - item.quantity);
+    const price = item.purchasePrice || 0;
+    return sum + deficit * price;
+  }, 0);
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       <Navbar title="Cảnh báo tồn kho" />
 
       {/* Overview Alert Banner */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-amber-500 text-white shadow-lg shadow-amber-500/20 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-6 h-6 text-white" />
+      <div className="p-4 sm:p-6 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/20 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="font-extrabold text-base sm:text-lg leading-tight">
+                Danh sách cần mua thêm / Bổ sung
+              </h2>
+              <p className="text-xs text-amber-100 mt-0.5">
+                Gồm <strong>{outOfStockCount}</strong> vật tư hết hàng và <strong>{lowStockCount}</strong> vật tư chạm ngưỡng an toàn
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold text-sm sm:text-base leading-tight">
-              Danh sách cần mua thêm / Bổ sung
-            </h2>
-            <p className="text-xs text-amber-100 mt-0.5">
-              Gồm {outOfStockCount} vật tư đã hết hàng và {lowStockCount} vật tư chạm ngưỡng tối thiểu
-            </p>
-          </div>
+
+          <Link
+            href="/items/new"
+            className="px-3.5 py-2 bg-white text-amber-900 rounded-xl text-xs font-bold shadow-sm shrink-0 hover:bg-amber-50 transition-colors"
+          >
+            + Nhập mới
+          </Link>
         </div>
 
-        <Link
-          href="/items/new"
-          className="px-3.5 py-2 bg-white text-amber-900 rounded-xl text-xs font-bold shadow-sm shrink-0 hover:bg-amber-50 transition-colors"
-        >
-          Nhập mới
-        </Link>
+        {/* Financial Reorder Estimate Card inside Banner */}
+        {totalReorderEstimate > 0 && (
+          <div className="p-3.5 rounded-2xl bg-black/15 backdrop-blur-md border border-white/20 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-amber-200 shrink-0" />
+              <div>
+                <span className="text-amber-100">Dự toán ngân sách mua bù:</span>{' '}
+                <strong className="text-white text-sm font-black">
+                  {totalReorderEstimate.toLocaleString('vi-VN')} đ
+                </strong>
+              </div>
+            </div>
+
+            <Link
+              href="/analytics"
+              className="text-[11px] font-semibold text-white underline hover:opacity-80 shrink-0 flex items-center gap-0.5"
+            >
+              <span>Xem báo cáo tài sản</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

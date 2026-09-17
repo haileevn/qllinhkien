@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         'Tủ / Kệ': i.container || '',
         'Ngăn / Hộp / Vị trí chi tiết': i.exactPosition || '',
         'Giá mua': i.purchasePrice || '',
+        'Link mua hàng': i.purchaseUrl || '',
         'Ngày mua': i.purchaseDate ? i.purchaseDate.toISOString().split('T')[0] : '',
         'Nhà cung cấp': i.supplier || '',
         'Mã vạch': i.barcode || '',
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Full JSON Backup (complete relational snapshot)
-    const [categories, locations, units, tags, items, transactions] = await Promise.all([
+    const [categories, locations, units, tags, items, transactions, projects] = await Promise.all([
       prisma.category.findMany(),
       prisma.storageLocation.findMany(),
       prisma.unit.findMany(),
@@ -66,10 +67,15 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.inventoryTransaction.findMany(),
+      prisma.project.findMany({
+        include: {
+          items: true,
+        },
+      }),
     ]);
 
     const backupData = {
-      version: '1.0',
+      version: '1.3',
       exportedAt: new Date().toISOString(),
       exportedBy: user.username,
       data: {
@@ -79,6 +85,7 @@ export async function GET(req: NextRequest) {
         tags,
         items,
         transactions,
+        projects,
       },
     };
 
