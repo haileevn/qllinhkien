@@ -1,6 +1,6 @@
 {
   "name": "qllinhkien",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,6 +22,7 @@
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
     "jose": "^6.2.12",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.46.0",
     "next": "16.3.5",
     "papaparse": "^5.7.0",

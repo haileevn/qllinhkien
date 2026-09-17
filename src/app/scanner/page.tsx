@@ -87,15 +87,14 @@ export default function ScannerPage() {
     setErrorMsg(null);
 
     try {
-      let scanner = scannerRef.current;
-      if (!scanner) {
-        scanner = new Html5Qrcode(readerElementId);
-        scannerRef.current = scanner;
-      }
-      const result = await scanner.scanFile(file, true);
+      await stopScanner();
+      const { scanBarcodeFromImage } = await import('@/lib/barcodeScanner');
+      const result = await scanBarcodeFromImage(file);
       handleResult(result);
-    } catch {
-      setErrorMsg('Không tìm thấy mã vạch trong ảnh này.');
+    } catch (err: any) {
+      setErrorMsg(
+        err?.message || 'Không tìm thấy mã vạch hoặc mã QR trong ảnh này. Hãy thử chụp gần và rõ hơn.'
+      );
       setLoading(false);
     }
   };

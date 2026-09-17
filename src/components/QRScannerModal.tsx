@@ -108,16 +108,14 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }: QRSca
     setErrorMsg(null);
 
     try {
-      let scanner = scannerRef.current;
-      if (!scanner) {
-        scanner = new Html5Qrcode(readerElementId);
-        scannerRef.current = scanner;
-      }
-
-      const result = await scanner.scanFile(file, true);
+      await stopScanner();
+      const { scanBarcodeFromImage } = await import('@/lib/barcodeScanner');
+      const result = await scanBarcodeFromImage(file);
       handleResult(result);
-    } catch (err) {
-      setErrorMsg('Không phát hiện được mã vạch hoặc mã QR trong ảnh này.');
+    } catch (err: any) {
+      setErrorMsg(
+        err?.message || 'Không phát hiện được mã vạch hoặc mã QR trong ảnh này. Hãy thử chụp gần và rõ hơn.'
+      );
       setLoading(false);
     }
   };
