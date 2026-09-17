@@ -1,69 +1,420 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  Search,
+  Package,
+  Boxes,
+  AlertTriangle,
+  XCircle,
+  MapPin,
+  Star,
+  Plus,
+  QrCode,
+  ArrowRight,
+  Clock,
+  Sparkles,
+  Layers,
+  History,
+  Loader2,
+} from 'lucide-react';
+import Navbar from '@/components/Navbar';
+import ItemCard from '@/components/ItemCard';
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchDashboard();
+    loadRecentSearches();
+  }, []);
+
+  const loadRecentSearches = () => {
+    try {
+      const stored = localStorage.getItem('h2t_recent_searches');
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      } else {
+        setRecentSearches(['relay 5v', 'esp32', 'dây usb', 'mỏ hàn', 'ốc m3']);
+      }
+    } catch {
+      setRecentSearches(['relay 5v', 'esp32', 'dây usb']);
+    }
+  };
+
+  const saveRecentSearch = (term: string) => {
+    try {
+      const clean = term.trim();
+      if (!clean) return;
+      const updated = [clean, ...recentSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 6);
+      setRecentSearches(updated);
+      localStorage.setItem('h2t_recent_searches', JSON.stringify(updated));
+    } catch {}
+  };
+
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/dashboard');
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Live debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+        const json = await res.json();
+        if (res.ok) {
+          setSearchResults(json.results || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      saveRecentSearch(searchQuery.trim());
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleTagClick = (term: string) => {
+    setSearchQuery(term);
+    saveRecentSearch(term);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-6">
+      <Navbar title="H2T Home Inventory" />
+
+      {/* Prominent Live Search Hero */}
+      <section className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 rounded-3xl p-4 sm:p-7 text-white shadow-xl shadow-sky-700/20 relative overflow-hidden">
+        {/* Decorative background glows */}
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold mb-3 border border-white/20">
+            <Sparkles className="w-3.5 h-3.5 text-sky-200" />
+            <span>Tra cứu tức thì &bull; Định vị chính xác</span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight mb-4 leading-tight">
+            Bạn đang tìm vật tư nào?
+          </h2>
+
+          {/* Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <div className="relative flex items-center">
+              <Search className="w-5 h-5 absolute left-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nhập tên linh kiện, SKU, vị trí, tủ, ngăn..."
+                className="w-full pl-11 pr-24 py-3.5 sm:py-4 text-sm sm:text-base font-medium rounded-2xl bg-white text-slate-900 placeholder-slate-400 shadow-2xl focus:outline-none focus:ring-4 focus:ring-sky-300/60"
+              />
+              <button
+                type="submit"
+                className="absolute right-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md transition-all"
+              >
+                {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Tìm'}
+              </button>
+            </div>
+          </form>
+
+          {/* Recent Search Keywords */}
+          {recentSearches.length > 0 && !searchQuery && (
+            <div className="mt-3.5 flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-sky-200 font-medium flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                Tìm gần đây:
+              </span>
+              {recentSearches.map((term, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleTagClick(term)}
+                  className="text-xs bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-sm px-2.5 py-1 rounded-lg text-white font-medium border border-white/20 transition-all"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Live Search Instant Results Dropdown / Preview */}
+      {searchQuery.trim() && (
+        <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xl">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+              <Search className="w-4 h-4 text-sky-600" />
+              <span>Kết quả tìm kiếm ({searchResults.length})</span>
+            </h3>
+            <Link
+              href={`/search?q=${encodeURIComponent(searchQuery)}`}
+              className="text-xs font-semibold text-sky-600 hover:underline flex items-center gap-1"
+            >
+              Xem toàn bộ
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {searching ? (
+            <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+              <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
+              <span>Đang tìm kiếm...</span>
+            </div>
+          ) : searchResults.length === 0 ? (
+            <div className="py-6 text-center text-slate-500 text-xs">
+              Không tìm thấy vật tư nào khớp với &quot;{searchQuery}&quot;.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {searchResults.slice(0, 6).map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Key Metric Stat Cards */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Total Item Types */}
+        <Link
+          href="/items"
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-800 transition-all shadow-sm group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <Boxes className="w-5 h-5" />
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white">
+            {loading ? '...' : data?.stats?.totalItemTypes ?? 0}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Loại vật tư
+          </div>
+        </Link>
+
+        {/* Total Quantity */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
+            <Package className="w-5 h-5" />
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white">
+            {loading ? '...' : data?.stats?.totalQuantity ?? 0}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Tổng số lượng món
+          </div>
         </div>
-      </main>
+
+        {/* Low Stock */}
+        <Link
+          href="/low-stock"
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-700 transition-all shadow-sm group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+            {loading ? '...' : data?.stats?.lowStockCount ?? 0}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Sắp hết hàng
+          </div>
+        </Link>
+
+        {/* Out of Stock */}
+        <Link
+          href="/low-stock?status=out_of_stock"
+          className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-rose-400 dark:hover:border-rose-700 transition-all shadow-sm group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <XCircle className="w-5 h-5" />
+          </div>
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
+            {loading ? '...' : data?.stats?.outOfStockCount ?? 0}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Hết hàng (0)
+          </div>
+        </Link>
+
+        {/* Total Storage Locations */}
+        <Link
+          href="/locations"
+          className="col-span-2 sm:col-span-1 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 transition-all shadow-sm group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white">
+            {loading ? '...' : data?.stats?.totalLocations ?? 0}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Vị trí lưu trữ
+          </div>
+        </Link>
+      </section>
+
+      {/* Section: Hay dùng (Favorites) */}
+      {data?.favorites && data.favorites.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <span>Hay dùng</span>
+            </h2>
+            <Link
+              href="/items?isFavorite=true"
+              className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+            >
+              Xem tất cả →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {data.favorites.map((item: any) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Section: Đồ mới thêm gần đây (Recently Added) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Clock className="w-4 h-4 text-sky-600" />
+            <span>Mới thêm gần đây</span>
+          </h2>
+          <Link
+            href="/items?sort=created_desc"
+            className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+          >
+            Xem tất cả →
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="py-12 flex justify-center text-slate-400">
+            <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
+          </div>
+        ) : data?.recentlyAdded && data.recentlyAdded.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.recentlyAdded.map((item: any) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            Chưa có vật tư nào trong hệ thống.
+          </div>
+        )}
+      </section>
+
+      {/* Section: Lịch sử biến động gần đây (Recent Transactions) */}
+      {data?.recentTransactions && data.recentTransactions.length > 0 && (
+        <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <History className="w-4 h-4 text-purple-600" />
+              <span>Biến động kho gần đây</span>
+            </h2>
+          </div>
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.recentTransactions.map((tx: any) => {
+              const isPlus = tx.type === 'IN';
+              const isMinus = tx.type === 'OUT';
+              const isMove = tx.type === 'MOVE';
+
+              return (
+                <div key={tx.id} className="py-2.5 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        isPlus
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          : isMinus
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                          : 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                      }`}
+                    >
+                      {isPlus ? '+' : isMinus ? '-' : '→'}
+                    </span>
+                    <div>
+                      <Link
+                        href={`/items/${tx.itemId}`}
+                        className="font-semibold text-slate-800 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 truncate max-w-[200px] sm:max-w-xs block"
+                      >
+                        {tx.item?.name}
+                      </Link>
+                      <span className="text-[11px] text-slate-400">
+                        {tx.note || (isPlus ? 'Nhập thêm' : isMinus ? 'Đã dùng' : 'Chuyển vị trí')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div
+                      className={`font-bold ${
+                        isPlus ? 'text-emerald-600' : isMinus ? 'text-rose-600' : 'text-purple-600'
+                      }`}
+                    >
+                      {isPlus ? `+${tx.quantity}` : isMinus ? `-${tx.quantity}` : `${tx.quantity}`}{' '}
+                      {tx.item?.unit}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {new Date(tx.createdAt).toLocaleDateString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        day: '2-digit',
+                        month: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

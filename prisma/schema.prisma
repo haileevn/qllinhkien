@@ -1,0 +1,168 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("ADMIN") // ADMIN, USER
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  icon        String?
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Category[] @relation("CategoryHierarchy")
+  items       Item[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+}
+
+model StorageLocation {
+  id                      String                 @id @default(uuid())
+  name                    String
+  code                    String?
+  description             String?
+  image                   String?
+  parentId                String?
+  parent                  StorageLocation?       @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children                StorageLocation[]      @relation("LocationHierarchy")
+  items                   Item[]
+  sourceTransactions      InventoryTransaction[] @relation("SourceLocation")
+  destinationTransactions InventoryTransaction[] @relation("DestinationLocation")
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+  @@index([code])
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  items     ItemTag[]
+  createdAt DateTime  @default(now())
+
+  @@index([name])
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+  @@index([itemId])
+}
+
+model Item {
+  id              String                 @id @default(uuid())
+  sku             String?
+  name            String
+  slug            String                 @unique
+  description     String?
+  categoryId      String
+  category        Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory     String?
+  brand           String?
+  model           String?
+  quantity        Float                  @default(0)
+  unit            String                 @default("cái")
+  minimumQuantity Float                  @default(0)
+  condition       String                 @default("NEW") // NEW, GOOD, USED, NEEDS_REPAIR, BROKEN, DISPOSED
+  locationId      String
+  location        StorageLocation        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  container       String?
+  exactPosition   String?
+  purchasePrice   Float?
+  purchaseDate    DateTime?
+  supplier        String?
+  notes           String?
+  barcode         String?
+  qrCodeValue     String?
+  mainImage       String?
+  isFavorite      Boolean                @default(false)
+  tags            ItemTag[]
+  images          ItemImage[]
+  transactions    InventoryTransaction[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([name])
+  @@index([sku])
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([brand])
+  @@index([isFavorite])
+}
+
+model ItemImage {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+}
+
+model InventoryTransaction {
+  id                    String           @id @default(uuid())
+  itemId                String
+  item                  Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  type                  String           // IN, OUT, ADJUSTMENT, MOVE
+  quantity              Float
+  previousQuantity      Float
+  newQuantity           Float
+  sourceLocationId      String?
+  sourceLocation        StorageLocation? @relation("SourceLocation", fields: [sourceLocationId], references: [id], onDelete: SetNull)
+  destinationLocationId String?
+  destinationLocation   StorageLocation? @relation("DestinationLocation", fields: [destinationLocationId], references: [id], onDelete: SetNull)
+  note                  String?
+  createdBy             String?
+  createdAt             DateTime         @default(now())
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+model Unit {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  symbol    String?
+  isDefault Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AppSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
