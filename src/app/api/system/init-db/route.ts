@@ -9,12 +9,22 @@ export async function GET(req: NextRequest) {
 
     // 1. Run prisma db push
     try {
-      execSync('npx prisma db push --skip-generate --accept-data-loss', {
+      const output = execSync('npx prisma db push --skip-generate --accept-data-loss', {
         env: { ...process.env },
         stdio: 'pipe',
       });
+      console.log('Prisma push output:', output.toString());
     } catch (e: any) {
-      console.warn('Prisma push warning:', e?.message);
+      const err = e?.stderr?.toString() || e?.stdout?.toString() || e?.message;
+      console.error('Prisma push error:', err);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Lỗi kết nối PostgreSQL: ${err}`,
+          hint: 'Kiểm tra biến DATABASE_URL trên Coolify. Nếu dùng PostgreSQL của Coolify, hãy copy chuỗi "Internal Database URL".',
+        },
+        { status: 500 }
+      );
     }
 
     // 2. Ensure Admin User

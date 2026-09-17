@@ -37,11 +37,15 @@ export async function POST(req: NextRequest) {
         // Re-check user count after pushing schema
         userCount = await prisma.user.count().catch(() => 0);
       } catch (dbPushError: any) {
-        console.error('Auto prisma db push failed:', dbPushError);
+        const errorDetail =
+          dbPushError?.stderr?.toString() ||
+          dbPushError?.stdout?.toString() ||
+          dbPushError?.message ||
+          'Không rõ nguyên nhân';
+        console.error('Auto prisma db push failed:', errorDetail);
         return NextResponse.json(
           {
-            error:
-              'Không thể tự động đồng bộ bảng cơ sở dữ liệu. Vui lòng kiểm tra lại biến DATABASE_URL trên Coolify.',
+            error: `Lỗi kết nối cơ sở dữ liệu: ${errorDetail}. Vui lòng kiểm tra biến DATABASE_URL trên Coolify (lưu ý: dùng tên service hoặc IP nội bộ, không dùng "localhost").`,
           },
           { status: 500 }
         );
