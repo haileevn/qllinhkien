@@ -16,7 +16,11 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
-import { stopHtml5QrcodeSafely, forceStopMediaTracks, stopAllGlobalMediaStreams } from '@/lib/cameraUtils';
+import {
+  startScannerWithFallback,
+  stopHtml5QrcodeSafely,
+  forceStopMediaTracks,
+} from '@/lib/cameraUtils';
 import { playBeepSuccess, playBeepError } from '@/lib/audio';
 
 interface QRScannerModalProps {
@@ -88,7 +92,6 @@ export default function QRScannerModal({
     } catch {}
 
     forceStopMediaTracks(readerElementId);
-    stopAllGlobalMediaStreams();
 
     setIsScanning(false);
     isStoppingRef.current = false;
@@ -273,23 +276,15 @@ export default function QRScannerModal({
       }
       container.innerHTML = '';
 
-      const html5QrCode = new Html5Qrcode(readerElementId);
-      scannerRef.current = html5QrCode;
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-      };
-
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        config,
+      const scanner = await startScannerWithFallback(
+        readerElementId,
         (decodedText) => {
           handleResultRef.current(decodedText);
         },
         () => {}
       );
+
+      scannerRef.current = scanner;
 
       if (shouldStopRef.current) {
         await stopScanner();
@@ -301,7 +296,8 @@ export default function QRScannerModal({
       console.warn('Camera start error:', err);
       await stopScanner();
       setErrorMsg(
-        'Không thể mở camera. Vui lòng cấp quyền truy cập camera trong trình duyệt hoặc chọn tải ảnh mã vạch.'
+        err?.message ||
+          'Không thể mở camera. Vui lòng cấp quyền truy cập camera trong trình duyệt hoặc chọn tải ảnh mã vạch.'
       );
       setIsScanning(false);
     } finally {
@@ -390,14 +386,12 @@ export default function QRScannerModal({
         stopScanner();
         stopNfc();
         forceStopMediaTracks(readerElementId);
-        stopAllGlobalMediaStreams();
       };
     } else {
       shouldStopRef.current = true;
       stopScanner();
       stopNfc();
       forceStopMediaTracks(readerElementId);
-      stopAllGlobalMediaStreams();
     }
   }, [isOpen, startScanner, startNfc, stopScanner, stopNfc, readerElementId]);
 

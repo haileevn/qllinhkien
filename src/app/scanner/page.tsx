@@ -30,7 +30,11 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import Navbar from '@/components/Navbar';
 import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
-import { stopHtml5QrcodeSafely, forceStopMediaTracks, stopAllGlobalMediaStreams } from '@/lib/cameraUtils';
+import {
+  startScannerWithFallback,
+  stopHtml5QrcodeSafely,
+  forceStopMediaTracks,
+} from '@/lib/cameraUtils';
 import { playBeepSuccess, playBeepError } from '@/lib/audio';
 
 interface PickedHistoryItem {
@@ -146,7 +150,6 @@ function ScannerContent() {
     } catch {}
 
     forceStopMediaTracks(readerElementId);
-    stopAllGlobalMediaStreams();
 
     setIsScanning(false);
     isStoppingRef.current = false;
@@ -348,21 +351,13 @@ function ScannerContent() {
       }
       container.innerHTML = '';
 
-      const html5QrCode = new Html5Qrcode(readerElementId);
-      scannerRef.current = html5QrCode;
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 260, height: 260 },
-        aspectRatio: 1.0,
-      };
-
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        config,
+      const scanner = await startScannerWithFallback(
+        readerElementId,
         (decodedText) => handleResultRef.current(decodedText),
         () => {}
       );
+
+      scannerRef.current = scanner;
 
       if (shouldStopRef.current) {
         await stopScanner();
@@ -374,7 +369,8 @@ function ScannerContent() {
       console.warn('Camera start error:', err);
       await stopScanner();
       setErrorMsg(
-        'Không thể mở camera. Vui lòng cấp quyền camera trong trình duyệt hoặc chọn ảnh từ máy.'
+        err?.message ||
+          'Không thể mở camera. Vui lòng cấp quyền camera trong trình duyệt hoặc chọn ảnh từ máy.'
       );
       setIsScanning(false);
     } finally {
@@ -484,7 +480,6 @@ function ScannerContent() {
         clearTimeout(t);
         stopScanner();
         forceStopMediaTracks(readerElementId);
-        stopAllGlobalMediaStreams();
       };
     } else {
       shouldStopRef.current = true;
@@ -492,7 +487,6 @@ function ScannerContent() {
       startNfcScan();
       return () => {
         stopNfcScan();
-        stopAllGlobalMediaStreams();
       };
     }
   }, [scanMedium, startScanner, stopScanner, startNfcScan, stopNfcScan, readerElementId]);
