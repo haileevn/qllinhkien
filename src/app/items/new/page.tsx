@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
+import AiAnalysisModal from '@/components/AiAnalysisModal';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
 import { canEdit } from '@/lib/permissions';
@@ -34,6 +35,7 @@ function NewItemForm() {
   const initialLocationId = searchParams.get('locationId');
 
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // Basic Fields (Initially visible)
   const [name, setName] = useState('');
@@ -323,6 +325,35 @@ function NewItemForm() {
               Ảnh vật tư (chụp ảnh hoặc chọn từ thư viện)
             </label>
             <ImageUploader images={images} onChange={setImages} />
+          </div>
+
+          {/* AI Auto-Fill Action Banner */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-purple-50 dark:from-slate-850 dark:via-indigo-950/30 dark:to-purple-950/30 border border-sky-200/70 dark:border-indigo-850 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles className="w-4 h-4 animate-pulse text-amber-300" />
+              </div>
+              <div className="min-w-0 text-xs">
+                <div className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                  <span>Google Gemini AI Điền thông số</span>
+                  <span className="text-[10px] px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded font-black">
+                    Auto-Fill
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  Tự động trích xuất thông số, hãng, model & ghi chú từ ảnh hoặc tiêu đề
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAiModalOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 hover:from-sky-700 hover:to-purple-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/20 flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI Phân tích</span>
+            </button>
           </div>
 
           {/* Item Name */}
@@ -714,6 +745,33 @@ function NewItemForm() {
           </button>
         </div>
       </form>
+
+      {/* AI Analysis Modal */}
+      <AiAnalysisModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        currentTitle={name}
+        currentImage={images[0]}
+        existingNotes={notes}
+        categories={categories}
+        onApply={(data) => {
+          if (data.name) setName(data.name);
+          if (data.brand) setBrand(data.brand);
+          if (data.model) setModel(data.model);
+          if (data.sku) setSku(data.sku);
+          if (data.categoryId) setCategoryId(data.categoryId);
+          if (data.unit) setUnit(data.unit);
+          if (data.notes) setNotes(data.notes);
+          if (data.tags && data.tags.length > 0) {
+            const existing = tagsInput
+              ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
+              : [];
+            const merged = Array.from(new Set([...existing, ...data.tags]));
+            setTagsInput(merged.join(', '));
+          }
+          setShowDetails(true);
+        }}
+      />
     </div>
   );
 }

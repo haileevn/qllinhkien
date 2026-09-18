@@ -30,11 +30,13 @@ import {
   Camera,
   Maximize2,
   X,
+  Sparkles,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import QuantityModal from '@/components/QuantityModal';
 import MoveLocationModal from '@/components/MoveLocationModal';
 import NfcModal from '@/components/NfcModal';
+import AiItemDetailAssistant from '@/components/AiItemDetailAssistant';
 import { ITEM_CONDITIONS, TRANSACTION_TYPES } from '@/lib/inventory';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { canEdit } from '@/lib/permissions';
@@ -58,6 +60,7 @@ export default function ItemDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [nfcModalOpen, setNfcModalOpen] = useState(false);
   const [locationPhotoModal, setLocationPhotoModal] = useState<string | null>(null);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -399,6 +402,16 @@ export default function ItemDetailPage() {
                 <span>Ghi thẻ NFC</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => setAiAssistantOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 hover:from-sky-700 hover:to-purple-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-sky-600/20 transition-all cursor-pointer"
+                title="AI tra cứu thông số kỹ thuật, datasheet và sơ đồ chân"
+              >
+                <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-300" />
+                <span>AI Tra cứu</span>
+              </button>
+
               {item.purchaseUrl && (
                 <a
                   href={item.purchaseUrl}
@@ -436,9 +449,20 @@ export default function ItemDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Specs Card */}
         <div className="md:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Thông số & Ghi chú
-          </h2>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span>Thông số & Ghi chú</span>
+            </h2>
+
+            <button
+              type="button"
+              onClick={() => setAiAssistantOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-50 via-indigo-50 to-purple-50 dark:from-slate-800 dark:via-indigo-950/40 dark:to-purple-950/40 border border-sky-200 dark:border-indigo-800/80 hover:border-sky-400 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+              <span>✨ AI Phân tích & Tra cứu</span>
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
             {item.purchasePrice ? (
@@ -687,6 +711,19 @@ export default function ItemDetailPage() {
             />
           </div>
         </div>
+      )}
+
+      {/* AI Item Assistant Modal */}
+      {aiAssistantOpen && (
+        <AiItemDetailAssistant
+          isOpen={aiAssistantOpen}
+          onClose={() => setAiAssistantOpen(false)}
+          item={item}
+          canEdit={canEdit(currentUser?.role)}
+          onNotesUpdated={(newNotes) => {
+            setItem((prev: any) => (prev ? { ...prev, notes: newNotes } : prev));
+          }}
+        />
       )}
     </div>
   );
