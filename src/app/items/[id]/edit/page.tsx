@@ -6,6 +6,7 @@ import { Save, Loader2, Barcode, Tag as TagIcon, ArrowLeft, QrCode, RefreshCw, S
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
 import AiAnalysisModal from '@/components/AiAnalysisModal';
+import DuplicateItemSuggestions, { MatchingItem } from '@/components/DuplicateItemSuggestions';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
 import { canEdit } from '@/lib/permissions';
@@ -185,6 +186,20 @@ export default function EditItemPage() {
     }
   };
 
+  const handleApplyDuplicateDetails = (item: MatchingItem) => {
+    if (item.category?.id) setCategoryId(item.category.id);
+    if (item.location?.id) setLocationId(item.location.id);
+    if (item.unit) setUnit(item.unit);
+    if (item.brand) setBrand(item.brand);
+    if (item.model) setModel(item.model);
+    if (item.condition) setCondition(item.condition);
+    if (item.container) setContainer(item.container);
+    if (item.exactPosition) setExactPosition(item.exactPosition);
+    if (item.supplier) setSupplier(item.supplier);
+    if (item.purchasePrice) setPurchasePrice(String(item.purchasePrice));
+    if (item.mainImage && images.length === 0) setImages([item.mainImage]);
+  };
+
   if (loading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-2 text-slate-400">
@@ -278,6 +293,13 @@ export default function EditItemPage() {
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-3.5 py-3 text-sm font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+            />
+
+            {/* Real-time duplicate & stock search preview */}
+            <DuplicateItemSuggestions
+              queryName={name}
+              excludeItemId={id}
+              onApplyDetails={handleApplyDuplicateDetails}
             />
           </div>
 

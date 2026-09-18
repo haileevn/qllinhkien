@@ -23,6 +23,7 @@ import {
 import Navbar from '@/components/Navbar';
 import ImageUploader from '@/components/ImageUploader';
 import AiAnalysisModal from '@/components/AiAnalysisModal';
+import DuplicateItemSuggestions, { MatchingItem } from '@/components/DuplicateItemSuggestions';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
 import { canEdit } from '@/lib/permissions';
@@ -259,6 +260,22 @@ function NewItemForm() {
     }
   };
 
+  const handleApplyDuplicateDetails = (item: MatchingItem) => {
+    if (item.category?.id) setCategoryId(item.category.id);
+    if (item.location?.id) setLocationId(item.location.id);
+    if (item.unit) setUnit(item.unit);
+    if (item.brand) setBrand(item.brand);
+    if (item.model) setModel(item.model);
+    if (item.condition) setCondition(item.condition);
+    if (item.container) setContainer(item.container);
+    if (item.exactPosition) setExactPosition(item.exactPosition);
+    if (item.supplier) setSupplier(item.supplier);
+    if (item.purchasePrice) setPurchasePrice(String(item.purchasePrice));
+    if (item.mainImage && images.length === 0) setImages([item.mainImage]);
+    setSuccessMsg(`Đã sao chép thông số từ món "${item.name}" vào biểu mẫu!`);
+    setTimeout(() => setSuccessMsg(null), 3500);
+  };
+
   if (currentUser && !canEdit(currentUser.role)) {
     return (
       <div className="max-w-md mx-auto space-y-5 pt-8 text-center">
@@ -368,6 +385,12 @@ function NewItemForm() {
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-3.5 py-3 text-sm font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white placeholder-slate-400"
+            />
+
+            {/* Real-time duplicate & stock search preview */}
+            <DuplicateItemSuggestions
+              queryName={name}
+              onApplyDetails={handleApplyDuplicateDetails}
             />
           </div>
 
