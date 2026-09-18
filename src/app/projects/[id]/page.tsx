@@ -25,6 +25,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import LocationBadgeWithToast from '@/components/LocationBadgeWithToast';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
 
@@ -350,10 +351,14 @@ export default function ProjectDetailPage() {
                       </Link>
                       <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-400 mt-0.5">
                         {pItem.item?.location && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-emerald-500" />
-                            {pItem.item.location.name}
-                          </span>
+                          <LocationBadgeWithToast
+                            location={pItem.item.location}
+                            locationPath={pItem.item.locationPath}
+                            container={pItem.item.container}
+                            exactPosition={pItem.item.exactPosition}
+                            variant="inline"
+                            showCopy={false}
+                          />
                         )}
                         {pItem.item?.purchasePrice ? (
                           <span>&bull; {pItem.item.purchasePrice.toLocaleString('vi-VN')} đ/{pItem.item.unit}</span>

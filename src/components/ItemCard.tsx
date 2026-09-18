@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import QuantityModal from './QuantityModal';
+import LocationBadgeWithToast from './LocationBadgeWithToast';
 import { detectShoppingPlatform } from '@/lib/shopping';
 
 interface ItemCardProps {
@@ -265,36 +266,15 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
             ) : null}
 
             {/* ========================================================= */}
-            {/* 3. STORAGE LOCATION (VỊ TRÍ ĐỂ NHƯ CŨ - DƯỚI TÊN) */}
+            {/* 3. STORAGE LOCATION (TÊN VỊ TRÍ TRỰC TIẾP + TOAST TOOLTIP SƠ ĐỒ GỐC) */}
             {/* ========================================================= */}
-            <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800/80 flex items-start justify-between gap-2 shadow-2xs">
-              <div className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 min-w-0 flex-1">
-                <div className="w-5 h-5 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
-                  <MapPin className="w-3 h-3" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Vị trí lưu trữ
-                  </div>
-                  <div className="font-semibold text-xs leading-snug text-slate-800 dark:text-slate-200 line-clamp-2 mt-0.5">
-                    {locationDisplay}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCopyLocation}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 shrink-0 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-600 cursor-pointer"
-                title="Sao chép đường dẫn vị trí"
-              >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
+            <LocationBadgeWithToast
+              location={item.location}
+              locationPath={item.locationPath}
+              container={item.container}
+              exactPosition={item.exactPosition}
+              variant="card"
+            />
 
             {/* Tags preview */}
             {tagList.length > 0 && (

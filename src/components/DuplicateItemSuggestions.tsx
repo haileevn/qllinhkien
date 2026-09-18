@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { removeVietnameseTones } from '@/lib/vietnamese';
+import LocationBadgeWithToast from './LocationBadgeWithToast';
 
 export interface MatchingItem {
   id: string;
@@ -242,15 +243,16 @@ export default function DuplicateItemSuggestions({
 
                     {/* Metadata Sub-row */}
                     <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                      {/* Storage Location */}
-                      {(item.locationPath || item.location?.name) && (
-                        <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
-                          <MapPin className="w-3 h-3 text-sky-500 shrink-0" />
-                          <span className="truncate max-w-[220px]">
-                            {item.locationPath || item.location?.name}
-                            {item.container && ` (${item.container})`}
-                          </span>
-                        </span>
+                      {/* Storage Location with Toast Tooltip */}
+                      {(item.locationPath || item.location?.name || item.container) && (
+                        <LocationBadgeWithToast
+                          location={item.location}
+                          locationPath={item.locationPath}
+                          container={item.container}
+                          exactPosition={item.exactPosition}
+                          variant="compact"
+                          showCopy={false}
+                        />
                       )}
 
                       {/* Category */}

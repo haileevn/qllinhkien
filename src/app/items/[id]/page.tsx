@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import QuantityModal from '@/components/QuantityModal';
+import LocationBadgeWithToast from '@/components/LocationBadgeWithToast';
 import MoveLocationModal from '@/components/MoveLocationModal';
 import NfcModal from '@/components/NfcModal';
 import AiItemDetailAssistant from '@/components/AiItemDetailAssistant';
@@ -272,35 +273,15 @@ export default function ItemDetailPage() {
               </div>
 
               {/* Prominent Storage Location Path & Photo */}
-              <div className="mt-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
-                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="text-[11px] text-slate-400 font-semibold uppercase">Vị trí lưu trữ chính xác</div>
-                      <div className="font-bold text-slate-900 dark:text-white text-sm mt-0.5">
-                        {fullLocationPath || 'Chưa phân vị trí'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleCopyLocation}
-                    className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-sky-600 flex items-center gap-1 shrink-0 shadow-xs transition-colors"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600">Đã chép</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Sao chép</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div className="mt-4 space-y-2.5">
+                <LocationBadgeWithToast
+                  location={item.location}
+                  locationPath={fullLocationPath}
+                  container={item.container}
+                  exactPosition={item.exactPosition}
+                  breadcrumbs={breadcrumbs}
+                  variant="card"
+                />
 
                 {/* Location / Box photo preview if location has image */}
                 {item.location?.image && (
