@@ -17,6 +17,7 @@ import {
   Package,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { buildHierarchyOptions } from '@/lib/tree-utils';
 
 export default function CategoriesPage() {
   const [tree, setTree] = useState<any[]>([]);
@@ -318,16 +319,14 @@ export default function CategoriesPage() {
                 <select
                   value={parentId}
                   onChange={(e) => setParentId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 >
-                  <option value="">(Danh mục gốc)</option>
-                  {allCategories
-                    .filter((c) => !editingId || c.id !== editingId)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                  <option value="">📁 (Danh mục gốc cấp cao nhất)</option>
+                  {buildHierarchyOptions(allCategories, editingId ? [editingId] : []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.formattedOptionLabel}
+                    </option>
+                  ))}
                 </select>
               </div>
 

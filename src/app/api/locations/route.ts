@@ -93,8 +93,11 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Recursively sum descendant values and counts
-    function aggregateSubtree(node: LocationNode): {
+    // Sort root nodes alphabetically
+    rootNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
+
+    // Recursively sum descendant values and counts and sort children
+    function aggregateSubtree(node: LocationNode, parentPath: string[], depth: number): {
       totalValue: number;
       totalItemsCount: number;
       totalQuantity: number;
@@ -104,8 +107,9 @@ export async function GET(req: NextRequest) {
       let sumQty = node.directQuantity;
 
       if (node.childrenList && node.childrenList.length > 0) {
+        node.childrenList.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
         for (const child of node.childrenList) {
-          const childStats = aggregateSubtree(child);
+          const childStats = aggregateSubtree(child, [...parentPath, node.name], depth + 1);
           sumVal += childStats.totalValue;
           sumCount += childStats.totalItemsCount;
           sumQty += childStats.totalQuantity;
@@ -119,23 +123,42 @@ export async function GET(req: NextRequest) {
       return { totalValue: sumVal, totalItemsCount: sumCount, totalQuantity: sumQty };
     }
 
-    rootNodes.forEach(aggregateSubtree);
+    rootNodes.forEach((root) => aggregateSubtree(root, [], 0));
+
+    // Flatten in DFS hierarchical tree order
+    interface FlattenedLocation extends Omit<LocationNode, 'childrenList'> {
+      path: string;
+      depth: number;
+    }
+    const hierarchicalFlatList: FlattenedLocation[] = [];
+
+    function flattenDFS(node: LocationNode, parentPath: string[], depth: number) {
+      const currentPath = [...parentPath, node.name];
+      const { childrenList, ...rest } = node;
+      hierarchicalFlatList.push({
+        ...rest,
+        path: currentPath.join(' → '),
+        depth,
+      });
+
+      if (childrenList && childrenList.length > 0) {
+        for (const child of childrenList) {
+          flattenDFS(child, currentPath, depth + 1);
+        }
+      }
+    }
+
+    rootNodes.forEach((root) => flattenDFS(root, [], 0));
 
     if (format === 'flat') {
       return NextResponse.json({
-        locations: Array.from(locMap.values()).map((l) => {
-          const { childrenList, ...rest } = l;
-          return rest;
-        }),
+        locations: hierarchicalFlatList,
       });
     }
 
     return NextResponse.json({
       tree: rootNodes,
-      locations: Array.from(locMap.values()).map((l) => {
-        const { childrenList, ...rest } = l;
-        return rest;
-      }),
+      locations: hierarchicalFlatList,
     });
   } catch (error) {
     console.error('Error fetching locations:', error);

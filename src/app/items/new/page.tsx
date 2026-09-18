@@ -25,6 +25,7 @@ import ImageUploader from '@/components/ImageUploader';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { clsx } from 'clsx';
 import { canEdit } from '@/lib/permissions';
+import { buildHierarchyOptions } from '@/lib/tree-utils';
 
 function NewItemForm() {
   const router = useRouter();
@@ -374,12 +375,11 @@ function NewItemForm() {
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2.5 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white font-medium"
                 >
-                  {locations.map((loc) => (
+                  {buildHierarchyOptions(locations).map((loc) => (
                     <option key={loc.id} value={loc.id}>
-                      {loc.code ? `[${loc.code}] ` : ''}
-                      {loc.name}
+                      {loc.formattedOptionLabel}
                     </option>
                   ))}
                 </select>
