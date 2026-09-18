@@ -24,11 +24,29 @@ import {
   FolderOpen,
   Printer,
   ChevronRight,
+  ChevronDown,
   FolderKanban,
   Coins,
+  Box,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
+
+interface LocationTreeNode {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  image: string | null;
+  parentId: string | null;
+  _count: { items: number; children: number };
+  directValue?: number;
+  directQuantity?: number;
+  totalValue?: number;
+  totalItemsCount?: number;
+  totalQuantity?: number;
+  childrenList?: LocationTreeNode[];
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -40,6 +58,9 @@ export default function DashboardPage() {
   const [searching, setSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+
+  // Location Tree expanded state
+  const [expandedLocations, setExpandedLocations] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchDashboard();
@@ -78,6 +99,17 @@ export default function DashboardPage() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+
+        // Expand root and 1st level children by default
+        const initExpanded: Record<string, boolean> = {};
+        json.locationTree?.forEach((root: LocationTreeNode) => {
+          initExpanded[root.id] = true;
+          root.childrenList?.forEach((child) => {
+            initExpanded[child.id] = true;
+          });
+        });
+        setExpandedLocations(initExpanded);
+
         const now = new Date();
         setLastUpdated(
           now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -89,6 +121,32 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const toggleLocationExpand = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedLocations((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const expandAllLocations = () => {
+    const all: Record<string, boolean> = {};
+    function markAll(nodes: LocationTreeNode[]) {
+      nodes.forEach((n) => {
+        all[n.id] = true;
+        if (n.childrenList && n.childrenList.length > 0) {
+          markAll(n.childrenList);
+        }
+      });
+    }
+    if (data?.locationTree) {
+      markAll(data.locationTree);
+    }
+    setExpandedLocations(all);
+  };
+
+  const collapseAllLocations = () => {
+    setExpandedLocations({});
   };
 
   // Live debounced search
@@ -130,6 +188,124 @@ export default function DashboardPage() {
     saveRecentSearch(term);
   };
 
+  // Recursive Tree Node Renderer for Storage Locations on Homepage
+  const renderHomeLocationNode = (node: LocationTreeNode, depth = 0) => {
+    const isExpanded = !!expandedLocations[node.id];
+    const hasChildren = node.childrenList && node.childrenList.length > 0;
+    const directItems = node._count?.items || 0;
+    const totalItems = node.totalItemsCount ?? directItems;
+    const hasSubtreeItems = totalItems > directItems;
+
+    return (
+      <div key={node.id} className="select-none">
+        <div
+          className={`group flex items-center justify-between py-2 px-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors ${
+            depth === 0
+              ? 'bg-slate-50/80 dark:bg-slate-800/50 my-1 font-semibold border border-slate-200/60 dark:border-slate-800'
+              : 'my-0.5'
+          }`}
+          style={{ paddingLeft: `${Math.max(10, depth * 20 + 10)}px` }}
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {hasChildren ? (
+              <button
+                onClick={(e) => toggleLocationExpand(node.id, e)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+            ) : (
+              <span className="w-4 h-4 inline-block shrink-0" />
+            )}
+
+            <Link
+              href={`/locations/${node.id}`}
+              className="flex items-center gap-2 min-w-0 flex-1 hover:text-sky-600 dark:hover:text-sky-400"
+            >
+              {node.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={node.image}
+                  alt={node.name}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                />
+              ) : isExpanded && hasChildren ? (
+                <FolderOpen className="w-4 h-4 text-emerald-500 shrink-0" />
+              ) : depth === 0 ? (
+                <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+              ) : (
+                <Box className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+
+              <span className="text-xs sm:text-sm truncate text-slate-800 dark:text-slate-200 font-medium">
+                {node.name}
+              </span>
+
+              {node.code && (
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+                  {node.code}
+                </span>
+              )}
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Valuation badge if any */}
+            {(node.totalValue || 0) > 0 && (
+              <span className="hidden md:inline-flex items-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                {(node.totalValue || 0).toLocaleString('vi-VN')} đ
+              </span>
+            )}
+
+            {/* Direct & recursive items count badge */}
+            <Link
+              href={`/locations/${node.id}`}
+              title={
+                hasSubtreeItems
+                  ? `${directItems} món trực tiếp + ${totalItems - directItems} món trong các ngăn con`
+                  : `${directItems} vật tư`
+              }
+              className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
+            >
+              {directItems}
+              {hasSubtreeItems ? ` (+${totalItems - directItems})` : ''} vật tư
+            </Link>
+
+            {/* Quick action buttons */}
+            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+              <Link
+                href={`/items/new?locationId=${node.id}`}
+                title="Thêm đồ vào vị trí này"
+                className="p-1 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Link>
+
+              <Link
+                href={`/locations/${node.id}`}
+                title="Mở chi tiết vị trí này"
+                className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Nested Children Tree */}
+        {hasChildren && isExpanded && (
+          <div className="border-l border-slate-200 dark:border-slate-800 ml-3.5">
+            {node.childrenList!.map((child) => renderHomeLocationNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Navbar
@@ -151,7 +327,6 @@ export default function DashboardPage() {
 
       {/* Prominent Live Search Hero */}
       <section className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 rounded-3xl p-4 sm:p-7 text-white shadow-xl shadow-sky-700/20 relative overflow-hidden">
-        {/* Decorative background glows */}
         <div className="absolute -top-24 -right-24 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-sky-400/20 rounded-full blur-2xl pointer-events-none" />
 
@@ -225,6 +400,14 @@ export default function DashboardPage() {
         </Link>
 
         <Link
+          href="/categories"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <Layers className="w-4 h-4 text-indigo-500" />
+          <span>Danh mục vật tư</span>
+        </Link>
+
+        <Link
           href="/projects"
           className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
         >
@@ -246,14 +429,6 @@ export default function DashboardPage() {
         >
           <QrCode className="w-4 h-4 text-sky-600" />
           <span>Quét Barcode / QR</span>
-        </Link>
-
-        <Link
-          href="/print-labels"
-          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
-        >
-          <Printer className="w-4 h-4 text-purple-600" />
-          <span>In tem nhãn QR</span>
         </Link>
 
         <Link
@@ -381,104 +556,60 @@ export default function DashboardPage() {
         </Link>
       </section>
 
-      {/* NEW SECTION: Tổng quan các khu vực kho & Tủ lưu trữ (Storage Locations Overview) */}
+      {/* SECTION: Tổng quan các khu vực kho & Tủ lưu trữ (Hierarchical Tree View) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <span>Tổng quan các khu vực kho & Tủ lưu trữ</span>
           </h2>
-          <Link
-            href="/locations"
-            className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
-          >
-            <span>Xem cây kho toàn bộ</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+              <button
+                onClick={expandAllLocations}
+                className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-sky-600"
+              >
+                Mở rộng
+              </button>
+              <span>&bull;</span>
+              <button
+                onClick={collapseAllLocations}
+                className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-sky-600"
+              >
+                Thu gọn
+              </button>
+            </div>
+            <Link
+              href="/locations"
+              className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+            >
+              <span>Xem sơ đồ cây đầy đủ</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         {loading ? (
-          <div className="py-8 flex justify-center text-slate-400">
+          <div className="py-12 flex justify-center text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
             <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
           </div>
-        ) : data?.locationsOverview && data.locationsOverview.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-            {data.locationsOverview.map((loc: any) => (
-              <div
-                key={loc.id}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-400 dark:hover:border-emerald-700 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Folder className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <Link
-                          href={`/locations/${loc.id}`}
-                          className="font-bold text-slate-900 dark:text-white text-sm hover:text-sky-600 truncate block"
-                        >
-                          {loc.name}
-                        </Link>
-                        {loc.code && (
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            {loc.code}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {loc.description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
-                      {loc.description}
-                    </p>
-                  )}
-
-                  {/* Metrics in this location */}
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-                      <div className="text-[10px] text-slate-400">Chủng loại</div>
-                      <div className="font-bold text-slate-800 dark:text-slate-200">
-                        {loc.totalDescendantItemTypes ?? loc.directItemCount} loại
-                      </div>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-sky-50/60 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50">
-                      <div className="text-[10px] text-sky-600 dark:text-sky-400">Tổng số lượng</div>
-                      <div className="font-black text-sky-700 dark:text-sky-300">
-                        {loc.totalQuantity ?? 0} món
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Action Footers */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <Link
-                    href={`/locations/${loc.id}`}
-                    className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>Mở kho</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-
-                  <Link
-                    href={`/items/new?locationId=${loc.id}`}
-                    className="p-1 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 text-[11px] font-medium"
-                    title="Thêm đồ vào kho này"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Thêm đồ</span>
-                  </Link>
-                </div>
-              </div>
-            ))}
+        ) : data?.locationTree && data.locationTree.length > 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-3 sm:p-5 shadow-sm space-y-1">
+            {data.locationTree.map((rootNode: LocationTreeNode) =>
+              renderHomeLocationNode(rootNode, 0)
+            )}
           </div>
         ) : (
-          <div className="p-6 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            Chưa có khu vực kho nào được tạo.
+          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500 space-y-2">
+            <Box className="w-8 h-8 text-slate-300 mx-auto" />
+            <p>Chưa có khu vực kho nào được tạo.</p>
+            <Link
+              href="/locations"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-600 text-white text-xs font-bold rounded-xl"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tạo vị trí kho đầu tiên</span>
+            </Link>
           </div>
         )}
       </section>
@@ -615,4 +746,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

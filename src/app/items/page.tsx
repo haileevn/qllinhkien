@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
+import { buildHierarchyOptions } from '@/lib/tree-utils';
 
 function ItemsListContent() {
   const searchParams = useSearchParams();
@@ -83,13 +84,24 @@ function ItemsListContent() {
       <Navbar
         title="Danh sách vật tư"
         action={
-          <Link
-            href="/items/new"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm</span>
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/categories"
+              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1 transition-colors"
+              title="Quản lý thêm sửa xóa danh mục"
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="hidden sm:inline">Danh mục</span>
+            </Link>
+
+            <Link
+              href="/items/new"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Thêm</span>
+            </Link>
+          </div>
         }
       />
 
@@ -113,12 +125,12 @@ function ItemsListContent() {
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none font-mono text-[11px]"
           >
-            <option value="">Tất cả danh mục</option>
-            {categories.map((c) => (
+            <option value="">📁 Tất cả danh mục</option>
+            {buildHierarchyOptions(categories).map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.formattedOptionLabel}
               </option>
             ))}
           </select>
@@ -127,13 +139,12 @@ function ItemsListContent() {
           <select
             value={locationId}
             onChange={(e) => setLocationId(e.target.value)}
-            className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none font-mono text-[11px]"
           >
-            <option value="">Tất cả vị trí</option>
-            {locations.map((l) => (
+            <option value="">📦 Tất cả vị trí</option>
+            {buildHierarchyOptions(locations).map((l) => (
               <option key={l.id} value={l.id}>
-                {l.code ? `[${l.code}] ` : ''}
-                {l.name}
+                {l.formattedOptionLabel}
               </option>
             ))}
           </select>

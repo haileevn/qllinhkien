@@ -138,6 +138,27 @@ export default function SettingsPage() {
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
+          {/* Categories Management */}
+          <Link
+            href="/categories"
+            className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <FolderKanban className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                  Quản lý Danh mục vật tư & Phân loại
+                </div>
+                <div className="text-xs text-slate-500">
+                  Thêm mới, đổi tên, di chuyển nhánh cha con và quản lý danh mục linh kiện
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </Link>
+
           {/* Units */}
           <Link
             href="/settings/units"
@@ -326,7 +347,7 @@ export default function SettingsPage() {
         <div className="space-y-1.5 text-slate-500">
           <div className="flex justify-between">
             <span>Phiên bản:</span>
-            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.6.0 (Ảnh chụp Box & Vị trí thực tế)</strong>
+            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.7.0 (Quản lý Danh mục & Cây sơ đồ kho)</strong>
           </div>
           <div className="flex justify-between">
             <span>Cơ sở dữ liệu:</span>

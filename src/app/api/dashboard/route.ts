@@ -33,6 +33,9 @@ export async function GET() {
           _count: {
             select: { items: true, children: true },
           },
+          items: {
+            select: { quantity: true, purchasePrice: true },
+          },
         },
         orderBy: { name: 'asc' },
       }).catch(() => []),
@@ -151,6 +154,92 @@ export async function GET() {
         };
       });
 
+    // Build hierarchical location tree
+    interface LocationTreeNode {
+      id: string;
+      name: string;
+      code: string | null;
+      description: string | null;
+      image: string | null;
+      parentId: string | null;
+      _count: { items: number; children: number };
+      directValue: number;
+      directQuantity: number;
+      totalValue: number;
+      totalItemsCount: number;
+      totalQuantity: number;
+      childrenList?: LocationTreeNode[];
+    }
+
+    const locationsWithMetrics: LocationTreeNode[] = (allLocations || []).map((loc: any) => {
+      const itemsArr = loc.items || [];
+      const directValue = itemsArr.reduce(
+        (sum: number, it: any) => sum + (it.quantity || 0) * (it.purchasePrice || 0),
+        0
+      );
+      const directQuantity = itemsArr.reduce(
+        (sum: number, it: any) => sum + (it.quantity || 0),
+        0
+      );
+
+      return {
+        id: loc.id,
+        name: loc.name,
+        code: loc.code,
+        description: loc.description,
+        image: loc.image || null,
+        parentId: loc.parentId,
+        _count: loc._count || { items: 0, children: 0 },
+        directValue,
+        directQuantity,
+        totalValue: directValue,
+        totalItemsCount: loc._count?.items || 0,
+        totalQuantity: directQuantity,
+        childrenList: [],
+      };
+    });
+
+    const treeLocMap = new Map<string, LocationTreeNode>();
+    locationsWithMetrics.forEach((l) => treeLocMap.set(l.id, l));
+
+    const locationTreeRoots: LocationTreeNode[] = [];
+    treeLocMap.forEach((node) => {
+      if (node.parentId && treeLocMap.has(node.parentId)) {
+        treeLocMap.get(node.parentId)!.childrenList!.push(node);
+      } else {
+        locationTreeRoots.push(node);
+      }
+    });
+
+    locationTreeRoots.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
+
+    function aggregateSubtree(node: LocationTreeNode): {
+      totalValue: number;
+      totalItemsCount: number;
+      totalQuantity: number;
+    } {
+      let sumVal = node.directValue;
+      let sumCount = node._count.items;
+      let sumQty = node.directQuantity;
+
+      if (node.childrenList && node.childrenList.length > 0) {
+        node.childrenList.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
+        for (const child of node.childrenList) {
+          const childStats = aggregateSubtree(child);
+          sumVal += childStats.totalValue;
+          sumCount += childStats.totalItemsCount;
+          sumQty += childStats.totalQuantity;
+        }
+      }
+
+      node.totalValue = sumVal;
+      node.totalItemsCount = sumCount;
+      node.totalQuantity = sumQty;
+      return { totalValue: sumVal, totalItemsCount: sumCount, totalQuantity: sumQty };
+    }
+
+    locationTreeRoots.forEach((root) => aggregateSubtree(root));
+
     // Global Stats
     let totalQuantity = 0;
     let lowStockCount = 0;
@@ -191,6 +280,7 @@ export async function GET() {
         totalCategories,
       },
       locationsOverview,
+      locationTree: locationTreeRoots,
       recentlyAdded,
       favorites,
       recentTransactions: recentTransactions || [],

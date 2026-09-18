@@ -114,6 +114,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       );
     }
 
+    const childrenCount = await prisma.category.count({
+      where: { parentId: id },
+    });
+
+    if (childrenCount > 0) {
+      return NextResponse.json(
+        { error: `Không thể xóa vì danh mục đang chứa ${childrenCount} danh mục con. Vui lòng di chuyển hoặc xóa danh mục con trước.` },
+        { status: 400 }
+      );
+    }
+
     await prisma.category.delete({
       where: { id },
     });
