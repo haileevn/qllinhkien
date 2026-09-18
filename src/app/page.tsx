@@ -28,6 +28,7 @@ import {
   FolderKanban,
   Coins,
   Box,
+  MinusCircle,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
@@ -424,11 +425,19 @@ export default function DashboardPage() {
         </Link>
 
         <Link
+          href="/scanner?mode=deduct"
+          className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-gradient-to-r from-amber-50 to-rose-50 dark:from-amber-950/40 dark:to-rose-950/40 hover:from-amber-100 hover:to-rose-100 dark:hover:from-amber-900/40 dark:hover:to-rose-900/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
+        >
+          <MinusCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <span>⚡ Quét lấy hàng</span>
+        </Link>
+
+        <Link
           href="/scanner"
           className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs active:scale-95 transition-all"
         >
           <QrCode className="w-4 h-4 text-sky-600" />
-          <span>Quét Barcode / QR</span>
+          <span>Quét tra cứu</span>
         </Link>
 
         <Link
