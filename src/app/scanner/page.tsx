@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {
   Camera,
   Image as ImageIcon,
-  QrCode,
   AlertCircle,
   Loader2,
   Radio,
@@ -16,25 +15,26 @@ import {
   MinusCircle,
   Undo2,
   Package,
-  Layers,
   MapPin,
   Clock,
   Trash2,
-  SlidersHorizontal,
   ChevronDown,
   ChevronUp,
-  FolderKanban,
-  Check,
   Search,
+  Zap,
+  ZapOff,
+  SwitchCamera,
+  RefreshCw,
 } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import Navbar from '@/components/Navbar';
 import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
 import {
-  startScannerWithFallback,
-  stopHtml5QrcodeSafely,
-  forceStopMediaTracks,
-} from '@/lib/cameraUtils';
+  createAndStartScanner,
+  checkCameraEnvironment,
+  ScannerController,
+  ScannerStatus,
+  stopAllVideoTracksInElement,
+} from '@/lib/unifiedScanner';
 import { playBeepSuccess, playBeepError } from '@/lib/audio';
 
 interface PickedHistoryItem {
@@ -79,27 +79,27 @@ function ScannerContent() {
   const [projects, setProjects] = useState<any[]>([]);
 
   // Scan states
+  const [scannerStatus, setScannerStatus] = useState<ScannerStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
   const [nfcListening, setNfcListening] = useState(false);
   const [nfcSuccessMsg, setNfcSuccessMsg] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   // Auto-deduct feedback states
   const [lastPicked, setLastPicked] = useState<PickedHistoryItem | null>(null);
   const [sessionHistory, setSessionHistory] = useState<PickedHistoryItem[]>([]);
   const [undoingTxId, setUndoingTxId] = useState<string | null>(null);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const controllerRef = useRef<ScannerController | null>(null);
   const nfcAbortRef = useRef<AbortController | null>(null);
-  const isStartingRef = useRef<boolean>(false);
-  const isStoppingRef = useRef<boolean>(false);
-  const shouldStopRef = useRef<boolean>(false);
-  const isHandlingNavRef = useRef<boolean>(false);
+  const isNavigatingRef = useRef<boolean>(false);
   const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
   const readerElementId = 'qr-fullpage-reader';
 
-  // Refs for state variables so callbacks stay completely stable without restarting camera
+  // Refs for state variables so callbacks stay stable
   const targetActionRef = useRef(targetAction);
   targetActionRef.current = targetAction;
   const deductAmountRef = useRef(deductAmount);
@@ -138,21 +138,16 @@ function ScannerContent() {
   }, []);
 
   const stopScanner = useCallback(async () => {
-    shouldStopRef.current = true;
-    if (isStoppingRef.current) return;
-    isStoppingRef.current = true;
-
-    const instance = scannerRef.current;
-    scannerRef.current = null;
-
-    try {
-      await stopHtml5QrcodeSafely(instance, readerElementId);
-    } catch {}
-
-    forceStopMediaTracks(readerElementId);
-
-    setIsScanning(false);
-    isStoppingRef.current = false;
+    if (controllerRef.current) {
+      const c = controllerRef.current;
+      controllerRef.current = null;
+      try {
+        await c.stop();
+      } catch {}
+    }
+    stopAllVideoTracksInElement(document.getElementById(readerElementId));
+    setScannerStatus('stopped');
+    setTorchOn(false);
   }, [readerElementId]);
 
   const normalizeUrlPath = (urlOrPath: string): string => {
@@ -214,7 +209,7 @@ function ScannerContent() {
       setLastPicked(historyItem);
       setSessionHistory((prev) => [historyItem, ...prev]);
       setErrorMsg(null);
-    } catch (err: any) {
+    } catch {
       playBeepError();
       setErrorMsg('Không thể kết nối máy chủ để trừ kho');
     } finally {
@@ -245,8 +240,8 @@ function ScannerContent() {
     }
 
     // In Lookup Mode: Stop camera and navigate to target page
-    if (isHandlingNavRef.current) return;
-    isHandlingNavRef.current = true;
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
 
     setProcessing(true);
 
@@ -283,14 +278,13 @@ function ScannerContent() {
 
       const finalPath = targetPath || `/search?q=${encodeURIComponent(cleanText)}`;
       const targetNorm = normalizeUrlPath(finalPath);
-      // Avoid redundant navigation if already on this exact page
       if (currentNorm !== targetNorm) {
         router.push(finalPath);
       }
     } catch {
       setErrorMsg('Không thể tra cứu mã này');
       setProcessing(false);
-      isHandlingNavRef.current = false;
+      isNavigatingRef.current = false;
     }
   };
 
@@ -329,54 +323,70 @@ function ScannerContent() {
   };
 
   const startScanner = useCallback(async () => {
-    if (isStartingRef.current) return;
-    isStartingRef.current = true;
-    shouldStopRef.current = false;
-    isHandlingNavRef.current = false;
     setErrorMsg(null);
+    isNavigatingRef.current = false;
 
-    // Stop previous instance cleanly
-    await stopScanner();
-
-    if (shouldStopRef.current) {
-      isStartingRef.current = false;
+    // Check environment first (e.g. HTTPS)
+    const env = checkCameraEnvironment();
+    if (!env.ok) {
+      setErrorMsg(env.message || 'Thiết bị không hỗ trợ Camera.');
+      setScannerStatus('error');
+      setStatusMessage(env.message || 'Lỗi Camera');
       return;
     }
 
-    try {
-      const container = document.getElementById(readerElementId);
-      if (!container) {
-        isStartingRef.current = false;
-        return;
-      }
-      container.innerHTML = '';
+    await stopScanner();
 
-      const scanner = await startScannerWithFallback(
+    try {
+      setScannerStatus('requesting_permission');
+      setStatusMessage('Đang yêu cầu quyền truy cập Camera...');
+
+      const controller = await createAndStartScanner(
         readerElementId,
         (decodedText) => handleResultRef.current(decodedText),
-        () => {}
+        (status, message) => {
+          setScannerStatus(status);
+          if (message) setStatusMessage(message);
+          if (status === 'error' && message) {
+            setErrorMsg(message);
+          }
+        },
+        facingMode
       );
 
-      scannerRef.current = scanner;
-
-      if (shouldStopRef.current) {
-        await stopScanner();
-        return;
-      }
-
-      setIsScanning(true);
+      controllerRef.current = controller;
+      setFacingMode(controller.getFacingMode());
     } catch (err: any) {
-      console.warn('Camera start error:', err);
+      console.warn('Camera start error in fullpage scanner:', err);
       await stopScanner();
       setErrorMsg(
         err?.message ||
           'Không thể mở camera. Vui lòng cấp quyền camera trong trình duyệt hoặc chọn ảnh từ máy.'
       );
-      setIsScanning(false);
-    } finally {
-      isStartingRef.current = false;
+      setScannerStatus('error');
     }
-  }, [stopScanner, readerElementId]);
+  }, [stopScanner, readerElementId, facingMode]);
+
+  const handleSwitchCamera = async () => {
+    if (controllerRef.current?.switchCamera) {
+      try {
+        await controllerRef.current.switchCamera();
+        setFacingMode(controllerRef.current.getFacingMode());
+      } catch (err: any) {
+        setErrorMsg(err?.message || 'Không thể chuyển đổi camera');
+      }
+    } else {
+      const next = facingMode === 'environment' ? 'user' : 'environment';
+      setFacingMode(next);
+    }
+  };
+
+  const handleToggleTorch = async () => {
+    if (controllerRef.current?.toggleTorch) {
+      const state = await controllerRef.current.toggleTorch();
+      setTorchOn(state);
+    }
+  };
 
   const startNfcScan = useCallback(async () => {
     if (!isNfcSupported() || !window.NDEFReader) {
@@ -461,35 +471,29 @@ function ScannerContent() {
   };
 
   const handleReopenCamera = async () => {
-    isHandlingNavRef.current = false;
+    isNavigatingRef.current = false;
     await stopScanner();
     await startScanner();
   };
 
   useEffect(() => {
+    let timer: any = null;
     if (scanMedium === 'camera') {
       stopNfcScan();
-      shouldStopRef.current = false;
-      isHandlingNavRef.current = false;
-      const t = setTimeout(() => {
+      timer = setTimeout(() => {
         startScanner();
-      }, 150);
-
-      return () => {
-        shouldStopRef.current = true;
-        clearTimeout(t);
-        stopScanner();
-        forceStopMediaTracks(readerElementId);
-      };
+      }, 100);
     } else {
-      shouldStopRef.current = true;
       stopScanner();
       startNfcScan();
-      return () => {
-        stopNfcScan();
-      };
     }
-  }, [scanMedium, startScanner, stopScanner, startNfcScan, stopNfcScan, readerElementId]);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      stopScanner();
+      stopNfcScan();
+    };
+  }, [scanMedium]);
 
   const totalSessionQuantity = sessionHistory.filter((h) => !h.undone).reduce((sum, h) => sum + h.deductedAmount, 0);
   const totalSessionCount = sessionHistory.filter((h) => !h.undone).length;
@@ -680,11 +684,14 @@ function ScannerContent() {
         {scanMedium === 'camera' ? (
           <>
             {/* Camera Viewport */}
-            <div className="p-4 bg-slate-950 flex flex-col items-center justify-center relative min-h-[300px]">
-              <div id={readerElementId} className="w-full max-w-[280px] rounded-2xl overflow-hidden bg-black" />
+            <div className="p-4 bg-slate-950 flex flex-col items-center justify-center relative min-h-[300px] overflow-hidden">
+              <div
+                id={readerElementId}
+                className="w-full max-w-[290px] h-[260px] rounded-2xl overflow-hidden bg-black border border-slate-800 relative flex items-center justify-center"
+              />
 
               {/* Action Mode Indicator Badge over Camera */}
-              <div className="absolute top-3 left-3 z-10">
+              <div className="absolute top-6 left-6 z-10">
                 <span
                   className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1 ${
                     targetAction === 'deduct'
@@ -706,6 +713,44 @@ function ScannerContent() {
                 </span>
               </div>
 
+              {/* Camera Live Controls (Torch & Switch Lens) */}
+              <div className="absolute top-6 right-6 z-10 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleToggleTorch}
+                  className={`p-2 rounded-full backdrop-blur-md transition-all shadow-md ${
+                    torchOn
+                      ? 'bg-amber-400 text-slate-950'
+                      : 'bg-black/60 text-white/90 hover:bg-black/80'
+                  }`}
+                  title="Bật/Tắt đèn Flash"
+                >
+                  {torchOn ? <Zap className="w-4 h-4 fill-current" /> : <ZapOff className="w-4 h-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSwitchCamera}
+                  className="p-2 rounded-full bg-black/60 text-white/90 hover:bg-black/80 backdrop-blur-md transition-all shadow-md"
+                  title="Đổi camera trước / sau"
+                >
+                  <SwitchCamera className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status Overlay if Loading/Starting */}
+              {scannerStatus !== 'scanning' && scannerStatus !== 'error' && (
+                <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 text-white z-10 p-4 text-center">
+                  <Loader2 className="w-9 h-9 animate-spin text-sky-400" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">{statusMessage || 'Đang chuẩn bị Camera...'}</p>
+                    <p className="text-[11px] text-slate-400">
+                      Nếu trình duyệt hỏi cấp quyền Camera, vui lòng nhấn &ldquo;Cho phép&rdquo; (Allow)
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {processing && (
                 <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-2 text-white z-20">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
@@ -718,21 +763,37 @@ function ScannerContent() {
 
             {/* Camera Controls & File Upload */}
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 text-center space-y-2.5">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                {targetAction === 'deduct'
-                  ? 'Hướng camera vào mã vạch linh kiện để tự động trừ kho liên tục.'
-                  : 'Hướng camera vào mã vạch sản phẩm (EAN/UPC) hoặc tem QR dán trên hộp/ngăn.'}
-              </p>
+              <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    scannerStatus === 'scanning'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : scannerStatus === 'error'
+                      ? 'bg-rose-500'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                <span>
+                  {scannerStatus === 'scanning'
+                    ? targetAction === 'deduct'
+                      ? 'Hướng camera vào mã vạch linh kiện để tự động trừ kho.'
+                      : 'Hướng camera vào mã vạch sản phẩm (EAN/UPC) hoặc tem QR vị trí.'
+                    : statusMessage || 'Đang kết nối camera...'}
+                </span>
+              </div>
 
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2 text-left animate-in fade-in duration-150">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{errorMsg}</span>
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5 text-left animate-in fade-in duration-150">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                  <div className="space-y-1">
+                    <p className="font-bold">Không thể mở Camera</p>
+                    <p className="leading-relaxed">{errorMsg}</p>
+                  </div>
                 </div>
               )}
 
               <div className="flex items-center justify-center gap-3 pt-0.5">
-                <label className="cursor-pointer flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-colors">
+                <label className="cursor-pointer flex items-center gap-1.5 px-3.5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-colors">
                   <ImageIcon className="w-4 h-4 text-sky-600" />
                   <span>Tải ảnh mã</span>
                   <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
@@ -741,9 +802,10 @@ function ScannerContent() {
                 <button
                   type="button"
                   onClick={handleReopenCamera}
-                  className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+                  className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white rounded-2xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
                 >
-                  Mở lại Camera
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Mở lại Camera</span>
                 </button>
               </div>
             </div>
