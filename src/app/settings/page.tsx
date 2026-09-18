@@ -326,7 +326,7 @@ export default function SettingsPage() {
         <div className="space-y-1.5 text-slate-500">
           <div className="flex justify-between">
             <span>Phiên bản:</span>
-            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.4.2 (NFC & QR)</strong>
+            <strong className="text-slate-800 dark:text-slate-200">H2T Home Inventory V1.5.0 (NFC, QR & Quản lý kho)</strong>
           </div>
           <div className="flex justify-between">
             <span>Cơ sở dữ liệu:</span>

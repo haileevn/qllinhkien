@@ -19,8 +19,13 @@ import {
   Printer,
   ClipboardCheck,
   Coins,
+  Edit,
+  Trash2,
+  ArrowRightLeft,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import EditLocationModal from '@/components/EditLocationModal';
+import DeleteLocationModal from '@/components/DeleteLocationModal';
 
 interface LocationNode {
   id: string;
@@ -51,6 +56,12 @@ export default function LocationsPage() {
   const [newParentId, setNewParentId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit & Delete Modal states
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<any>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingLocation, setDeletingLocation] = useState<any>(null);
 
   useEffect(() => {
     fetchLocations();
@@ -132,6 +143,20 @@ export default function LocationsPage() {
     e.stopPropagation();
     setNewParentId(parentId);
     setAddModalOpen(true);
+  };
+
+  const openEditModal = (node: LocationNode, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingLocation(node);
+    setEditModalOpen(true);
+  };
+
+  const openDeleteModal = (node: LocationNode, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeletingLocation(node);
+    setDeleteModalOpen(true);
   };
 
   const totalLocationsCount = allLocations.length;
@@ -221,6 +246,22 @@ export default function LocationsPage() {
                 className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700"
               >
                 <Plus className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={(e) => openEditModal(node, e)}
+                title="Đổi tên / Chuyển vị trí cha"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-white dark:hover:bg-slate-700"
+              >
+                <Edit className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={(e) => openDeleteModal(node, e)}
+                title="Xóa vị trí"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
 
               <Link
@@ -347,15 +388,15 @@ export default function LocationsPage() {
 
       {/* Create Location Modal */}
       {addModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
                 Thêm vị trí lưu trữ mới
               </h3>
               <button
                 onClick={() => setAddModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -365,8 +406,8 @@ export default function LocationsPage() {
               {error && <p className="text-xs text-rose-500 font-semibold">{error}</p>}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Tên vị trí *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Tên vị trí / Tủ ngăn <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -374,12 +415,12 @@ export default function LocationsPage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Mã định danh rút gọn (tùy chọn)
                 </label>
                 <input
@@ -387,20 +428,20 @@ export default function LocationsPage() {
                   placeholder="Ví dụ: A3-05, TLA, KSN..."
                   value={newCode}
                   onChange={(e) => setNewCode(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Vị trí cha (Parent Location)
                 </label>
                 <select
                   value={newParentId}
                   onChange={(e) => setNewParentId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 >
-                  <option value="">(Cấp cao nhất - Không có vị trí cha)</option>
+                  <option value="">(Cấp cao nhất - Kho gốc độc lập / Không có cha)</option>
                   {allLocations.map((loc) => (
                     <option key={loc.id} value={loc.id}>
                       {loc.code ? `[${loc.code}] ` : ''}
@@ -411,7 +452,7 @@ export default function LocationsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Mô tả
                 </label>
                 <textarea
@@ -419,11 +460,11 @@ export default function LocationsPage() {
                   placeholder="Ghi chú về vị trí này..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setAddModalOpen(false)}
@@ -434,7 +475,7 @@ export default function LocationsPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 active:scale-95 disabled:opacity-50 rounded-xl shadow-sm flex items-center gap-1.5"
+                  className="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:scale-95 disabled:opacity-50 rounded-xl shadow-md shadow-sky-600/20 flex items-center gap-1.5"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   <span>Tạo vị trí</span>
@@ -443,6 +484,37 @@ export default function LocationsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Location Modal */}
+      {editModalOpen && editingLocation && (
+        <EditLocationModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingLocation(null);
+          }}
+          location={editingLocation}
+          allLocations={allLocations}
+          onSaved={() => {
+            fetchLocations();
+          }}
+        />
+      )}
+
+      {/* Delete Location Modal */}
+      {deleteModalOpen && deletingLocation && (
+        <DeleteLocationModal
+          isOpen={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setDeletingLocation(null);
+          }}
+          location={deletingLocation}
+          onDeleted={() => {
+            fetchLocations();
+          }}
+        />
       )}
     </div>
   );
