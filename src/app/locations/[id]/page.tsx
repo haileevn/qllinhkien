@@ -423,7 +423,7 @@ export default function LocationDetailPage() {
             <p>Chưa có vật tư nào được lưu trong vị trí này.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-4.5">
             {items.map((item) => (
               <ItemCard key={item.id} item={item} onItemUpdated={fetchLocationDetails} />
             ))}

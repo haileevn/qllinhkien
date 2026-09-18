@@ -667,7 +667,7 @@ export default function DashboardPage() {
             <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
           </div>
         ) : data?.recentlyAdded && data.recentlyAdded.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4.5">
             {data.recentlyAdded.map((item: any) => (
               <ItemCard key={item.id} item={item} onItemUpdated={() => fetchDashboard(true)} />
             ))}
