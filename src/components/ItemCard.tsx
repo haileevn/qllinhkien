@@ -15,10 +15,13 @@ import {
   Boxes,
   Sparkles,
   ArrowRight,
+  ZoomIn,
+  Maximize2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import QuantityModal from './QuantityModal';
 import LocationBadgeWithToast from './LocationBadgeWithToast';
+import ImageLightboxModal from './ImageLightboxModal';
 import { detectShoppingPlatform } from '@/lib/shopping';
 
 interface ItemCardProps {
@@ -56,9 +59,9 @@ const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
-  const [copied, setCopied] = useState(false);
   const [favorite, setFavorite] = useState(item.isFavorite ?? false);
   const [quantityModalOpen, setQuantityModalOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentQty, setCurrentQty] = useState(item.quantity);
   const [imgError, setImgError] = useState(false);
 
@@ -66,12 +69,6 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
   const tagList = Array.isArray(item.tags)
     ? item.tags.map((t: any) => (typeof t === 'string' ? t : t.tag?.name)).filter(Boolean)
     : [];
-
-  // Determine full location text
-  const locationDisplay =
-    item.locationPath ||
-    [item.location?.name, item.container, item.exactPosition].filter(Boolean).join(' → ') ||
-    'Chưa phân vị trí';
 
   // Stock status badge configuration
   let stockBadge = {
@@ -96,14 +93,6 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
     };
   }
 
-  const handleCopyLocation = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigator.clipboard.writeText(locationDisplay);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -120,6 +109,14 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
     }
   };
 
+  const handleOpenLightbox = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (displayImage) {
+      setLightboxOpen(true);
+    }
+  };
+
   const allImages = item.images && item.images.length > 0 ? item.images : [];
   const displayImage =
     !imgError &&
@@ -130,37 +127,68 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
 
   const conditionInfo = item.condition ? CONDITION_LABELS[item.condition] : null;
 
+  // Prepare images list for lightbox
+  const lightboxImagesList = [
+    item.mainImage,
+    ...allImages.map((i) => i.url),
+  ]
+    .filter((u, idx, arr): u is string => !!u && arr.indexOf(u) === idx)
+    .map((url) => ({ url, title: item.name }));
+
   return (
     <>
       <div className="group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 hover:border-sky-400 dark:hover:border-sky-500/80 shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col justify-between">
         <div>
           {/* ========================================================= */}
-          {/* 1. HERO IMAGE ON TOP (HÌNH ẢNH TO, PRO, HIỆN ĐẠI) */}
+          {/* 1. HERO IMAGE ON TOP (HIỂN THỊ ĐẦY ĐỦ ĐỒ VẬT + NÚT ZOOM) */}
           {/* ========================================================= */}
-          <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-gradient-to-br from-slate-100 via-slate-200/50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 overflow-hidden">
-            <Link href={`/items/${item.id}`} className="block w-full h-full">
-              {displayImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={displayImage}
-                  alt={item.name}
-                  onError={() => setImgError(true)}
-                  className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-500 ease-out"
+          <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-slate-100/90 dark:bg-slate-850 overflow-hidden flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80">
+            {displayImage ? (
+              <>
+                {/* Subtle atmosphere background blur */}
+                <div
+                  className="absolute inset-0 bg-center bg-cover opacity-20 dark:opacity-15 blur-xl scale-125 pointer-events-none"
+                  style={{ backgroundImage: `url(${displayImage})` }}
                 />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 gap-1.5 p-4 select-none">
-                  <div className="w-12 h-12 rounded-2xl bg-white/70 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shadow-xs">
-                    <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-400">Chưa có ảnh</span>
+
+                {/* Main Full Item Image (OBJECT-CONTAIN ĐỂ NHẬN BIẾT ĐẦY ĐỦ ĐỒ VẬT TO/DÀI) */}
+                <div
+                  onClick={handleOpenLightbox}
+                  className="relative z-1 w-full h-full p-3 sm:p-4 flex items-center justify-center cursor-zoom-in"
+                  title="Nhấn để phóng to xem chi tiết ảnh"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={displayImage}
+                    alt={item.name}
+                    onError={() => setImgError(true)}
+                    className="max-w-full max-h-full object-contain object-center drop-shadow-md group-hover:scale-105 transition-transform duration-300 ease-out select-none"
+                  />
                 </div>
-              )}
-            </Link>
+
+                {/* Floating Quick Zoom Button on Hover */}
+                <button
+                  type="button"
+                  onClick={handleOpenLightbox}
+                  className="absolute top-2.5 right-11 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-sky-600 text-white backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 active:scale-95 shadow-md cursor-pointer"
+                  title="Phóng to ảnh (Zoom)"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <Link href={`/items/${item.id}`} className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 gap-1.5 p-4 select-none">
+                <div className="w-12 h-12 rounded-2xl bg-white/70 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shadow-xs">
+                  <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <span className="text-[11px] font-medium text-slate-400">Chưa có ảnh</span>
+              </Link>
+            )}
 
             {/* Top Left: Category Badge with Glassmorphism */}
             {item.category?.name && (
-              <div className="absolute top-2.5 left-2.5 pointer-events-none">
-                <span className="px-2.5 py-1 rounded-xl bg-slate-900/70 dark:bg-black/75 text-white backdrop-blur-md text-[10px] sm:text-[11px] font-bold shadow-sm border border-white/15 flex items-center gap-1">
+              <div className="absolute top-2.5 left-2.5 pointer-events-none z-10">
+                <span className="px-2.5 py-1 rounded-xl bg-slate-900/75 dark:bg-black/80 text-white backdrop-blur-md text-[10px] sm:text-[11px] font-bold shadow-sm border border-white/15 flex items-center gap-1">
                   <Layers className="w-3 h-3 text-sky-400" />
                   <span className="truncate max-w-[120px]">{item.category.name}</span>
                 </span>
@@ -168,11 +196,11 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
             )}
 
             {/* Top Right: Favorite Button */}
-            <div className="absolute top-2.5 right-2.5">
+            <div className="absolute top-2.5 right-2.5 z-10">
               <button
                 type="button"
                 onClick={handleToggleFavorite}
-                className="w-8 h-8 rounded-full bg-white/85 dark:bg-slate-900/85 backdrop-blur-md flex items-center justify-center text-slate-400 hover:text-amber-500 shadow-sm border border-slate-200/50 dark:border-slate-700/50 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md flex items-center justify-center text-slate-400 hover:text-amber-500 shadow-sm border border-slate-200/50 dark:border-slate-700/50 transition-all hover:scale-110 active:scale-95 cursor-pointer"
                 title={favorite ? 'Bỏ yêu thích' : 'Đánh dấu yêu thích'}
               >
                 <Star
@@ -187,7 +215,7 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
             </div>
 
             {/* Bottom Left: Stock Quantity Pill */}
-            <div className="absolute bottom-2.5 left-2.5 pointer-events-none">
+            <div className="absolute bottom-2.5 left-2.5 pointer-events-none z-10">
               <span
                 className={clsx(
                   'px-2.5 py-1 rounded-xl backdrop-blur-md text-[11px] font-extrabold shadow-md border flex items-center gap-1.5',
@@ -200,7 +228,7 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
             </div>
 
             {/* Bottom Right: Condition or Image Count */}
-            <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 pointer-events-none">
+            <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 pointer-events-none z-10">
               {conditionInfo && (
                 <span
                   className={clsx(
@@ -213,7 +241,7 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
               )}
 
               {allImages.length > 1 && (
-                <span className="px-1.5 py-0.5 rounded-lg bg-black/65 text-white backdrop-blur-md text-[10px] font-semibold border border-white/15 flex items-center gap-0.5">
+                <span className="px-1.5 py-0.5 rounded-lg bg-black/70 text-white backdrop-blur-md text-[10px] font-semibold border border-white/15 flex items-center gap-0.5">
                   <Camera className="w-2.5 h-2.5" />
                   <span>{allImages.length}</span>
                 </span>
@@ -359,6 +387,16 @@ export default function ItemCard({ item, onItemUpdated }: ItemCardProps) {
             setCurrentQty(updated.quantity);
             if (onItemUpdated) onItemUpdated(updated);
           }}
+        />
+      )}
+
+      {/* Image Zoom Lightbox Modal */}
+      {lightboxOpen && (
+        <ImageLightboxModal
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          images={lightboxImagesList.length > 0 ? lightboxImagesList : (displayImage ? [displayImage] : [])}
+          title={item.name}
         />
       )}
     </>

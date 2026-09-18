@@ -32,6 +32,7 @@ import ItemCard from '@/components/ItemCard';
 import NfcModal from '@/components/NfcModal';
 import EditLocationModal from '@/components/EditLocationModal';
 import DeleteLocationModal from '@/components/DeleteLocationModal';
+import ImageLightboxModal from '@/components/ImageLightboxModal';
 
 export default function LocationDetailPage() {
   const params = useParams();
@@ -475,25 +476,12 @@ export default function LocationDetailPage() {
       )}
       {/* Zoom Modal for Location Photo */}
       {previewImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewImage}
-              alt="Phóng to ảnh vị trí"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
-            />
-          </div>
-        </div>
+        <ImageLightboxModal
+          isOpen={!!previewImage}
+          onClose={() => setPreviewImage(null)}
+          images={[{ url: previewImage, title: `Ảnh chụp thực tế: ${location.name}` }]}
+          title={`Vị trí: ${location.name}`}
+        />
       )}
     </div>
   );

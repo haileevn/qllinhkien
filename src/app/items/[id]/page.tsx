@@ -29,6 +29,7 @@ import {
   Radio,
   Camera,
   Maximize2,
+  ZoomIn,
   X,
   Sparkles,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import LocationBadgeWithToast from '@/components/LocationBadgeWithToast';
 import MoveLocationModal from '@/components/MoveLocationModal';
 import NfcModal from '@/components/NfcModal';
 import AiItemDetailAssistant from '@/components/AiItemDetailAssistant';
+import ImageLightboxModal from '@/components/ImageLightboxModal';
 import { ITEM_CONDITIONS, TRANSACTION_TYPES } from '@/lib/inventory';
 import { detectShoppingPlatform } from '@/lib/shopping';
 import { canEdit } from '@/lib/permissions';
@@ -60,7 +62,9 @@ export default function ItemDetailPage() {
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [nfcModalOpen, setNfcModalOpen] = useState(false);
-  const [locationPhotoModal, setLocationPhotoModal] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+  const [locationPhotoLightbox, setLocationPhotoLightbox] = useState<string | null>(null);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -167,11 +171,16 @@ export default function ItemDetailPage() {
 
   const condInfo = ITEM_CONDITIONS[item.condition] || ITEM_CONDITIONS.NEW;
 
-  // All item images array
-  const allImages = [
+  // All item images array (deduplicated)
+  const allImages: string[] = [
     item.mainImage,
     ...(item.images?.map((img: any) => img.url) || []),
-  ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+  ].filter((u, i, arr): u is string => !!u && arr.indexOf(u) === i);
+
+  const handleOpenLightbox = (index = 0) => {
+    setLightboxInitialIndex(index);
+    setLightboxOpen(true);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -182,7 +191,7 @@ export default function ItemDetailPage() {
         action={
           <button
             onClick={handleToggleFavorite}
-            className="p-2 rounded-lg text-slate-400 hover:text-amber-500 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-amber-500 transition-colors cursor-pointer"
           >
             <Star
               className={`w-5 h-5 ${
@@ -200,16 +209,45 @@ export default function ItemDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Gallery Preview Left Column */}
           <div className="md:col-span-5 space-y-3">
-            <div className="aspect-square rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 overflow-hidden relative flex items-center justify-center shadow-inner">
+            <div className="aspect-square rounded-2xl bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 overflow-hidden relative flex items-center justify-center shadow-inner group">
               {selectedImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={selectedImage}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  {/* Subtle atmosphere background blur */}
+                  <div
+                    className="absolute inset-0 bg-center bg-cover opacity-20 dark:opacity-15 blur-xl scale-125 pointer-events-none"
+                    style={{ backgroundImage: `url(${selectedImage})` }}
+                  />
+
+                  {/* Main Full Item Image (OBJECT-CONTAIN ĐỂ HIỂN THỊ ĐẦY ĐỦ TOÀN BỘ ĐỒ VẬT) */}
+                  <div
+                    onClick={() => handleOpenLightbox(allImages.indexOf(selectedImage))}
+                    className="relative z-1 w-full h-full p-4 flex items-center justify-center cursor-zoom-in"
+                    title="Nhấn để phóng to ảnh và xem chi tiết (Zoom)"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={selectedImage}
+                      alt={item.name}
+                      className="max-w-full max-h-full object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300 select-none"
+                    />
+                  </div>
+
+                  {/* Hover Floating Zoom Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenLightbox(allImages.indexOf(selectedImage))}
+                    className="absolute top-3 right-3 z-10 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-sky-600 text-white backdrop-blur-md border border-white/20 text-xs font-semibold flex items-center gap-1.5 transition-all opacity-80 group-hover:opacity-100 shadow-md cursor-pointer"
+                    title="Phóng to ảnh (Zoom)"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                    <span>Phóng to</span>
+                  </button>
+                </>
               ) : (
-                <Package className="w-16 h-16 text-slate-300 dark:text-slate-700" />
+                <div className="flex flex-col items-center justify-center text-slate-400 gap-2 p-4">
+                  <Package className="w-16 h-16 text-slate-300 dark:text-slate-700" />
+                  <span className="text-xs">Chưa có ảnh vật tư</span>
+                </div>
               )}
             </div>
 
@@ -220,14 +258,14 @@ export default function ItemDetailPage() {
                   <button
                     key={i}
                     onClick={() => setSelectedImage(img)}
-                    className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                    className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all p-1 bg-slate-100 dark:bg-slate-800 ${
                       selectedImage === img
-                        ? 'border-sky-600 scale-105'
+                        ? 'border-sky-600 scale-105 shadow-sm'
                         : 'border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100'
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
+                    <img src={img} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
@@ -286,7 +324,7 @@ export default function ItemDetailPage() {
                 {/* Location / Box photo preview if location has image */}
                 {item.location?.image && (
                   <div
-                    onClick={() => setLocationPhotoModal(item.location.image)}
+                    onClick={() => setLocationPhotoLightbox(item.location.image)}
                     className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-sky-400 dark:hover:border-sky-600 transition-colors group"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -321,7 +359,7 @@ export default function ItemDetailPage() {
                   {canEdit(currentUser?.role) ? (
                     <button
                       onClick={() => setQuantityModalOpen(true)}
-                      className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/30 flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       <span>Điều chỉnh số lượng</span>
                     </button>
@@ -357,7 +395,7 @@ export default function ItemDetailPage() {
 
                   <button
                     onClick={() => setMoveModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5 text-purple-500" />
                     <span>Chuyển vị trí</span>
@@ -376,7 +414,7 @@ export default function ItemDetailPage() {
               <button
                 type="button"
                 onClick={() => setNfcModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-indigo-200 dark:border-indigo-800/80"
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-indigo-200 dark:border-indigo-800/80 cursor-pointer"
                 title="Ghi liên kết vật tư này vào thẻ NFC / tem thông minh dán trên hộp"
               >
                 <Radio className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -409,7 +447,7 @@ export default function ItemDetailPage() {
               {canEdit(currentUser?.role) && (
                 <button
                   onClick={() => setDeleteConfirmOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-colors ml-auto"
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-colors ml-auto cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Xóa</span>
@@ -660,6 +698,7 @@ export default function ItemDetailPage() {
           </div>
         </div>
       )}
+
       {/* NFC Writer Modal */}
       {nfcModalOpen && (
         <NfcModal
@@ -671,27 +710,26 @@ export default function ItemDetailPage() {
           urlPath={`/items/${item.id}`}
         />
       )}
-      {/* Location Photo Zoom Modal */}
-      {locationPhotoModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setLocationPhotoModal(null)}
-        >
-          <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
-            <button
-              onClick={() => setLocationPhotoModal(null)}
-              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={locationPhotoModal}
-              alt="Ảnh chụp thực tế vị trí lưu trữ"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
-            />
-          </div>
-        </div>
+
+      {/* Item Image Zoom Lightbox Modal */}
+      {lightboxOpen && (
+        <ImageLightboxModal
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          images={allImages.map((url) => ({ url, title: item.name }))}
+          initialIndex={lightboxInitialIndex}
+          title={item.name}
+        />
+      )}
+
+      {/* Location Photo Zoom Lightbox Modal */}
+      {locationPhotoLightbox && (
+        <ImageLightboxModal
+          isOpen={!!locationPhotoLightbox}
+          onClose={() => setLocationPhotoLightbox(null)}
+          images={[{ url: locationPhotoLightbox, title: `Ảnh Box/Kệ: ${item.location?.name || ''}` }]}
+          title={`Vị trí: ${item.location?.name || ''}`}
+        />
       )}
 
       {/* AI Item Assistant Modal */}

@@ -199,7 +199,7 @@ export default function DuplicateItemSuggestions({
                       <img
                         src={item.mainImage}
                         alt={item.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-0.5"
                       />
                     ) : (
                       <Boxes className="w-5 h-5 text-slate-400" />

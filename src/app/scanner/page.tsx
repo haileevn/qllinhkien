@@ -884,7 +884,7 @@ function ScannerContent() {
               <img
                 src={lastPicked.item.mainImage}
                 alt={lastPicked.item.name}
-                className="w-12 h-12 rounded-xl object-cover shrink-0 border border-emerald-200 dark:border-emerald-700"
+                className="w-12 h-12 rounded-xl object-contain p-0.5 bg-white dark:bg-slate-800 shrink-0 border border-emerald-200 dark:border-emerald-700"
               />
             ) : (
               <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
