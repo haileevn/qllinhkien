@@ -30,7 +30,7 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import Navbar from '@/components/Navbar';
 import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
-import { stopHtml5QrcodeSafely, forceStopMediaTracks } from '@/lib/cameraUtils';
+import { stopHtml5QrcodeSafely, forceStopMediaTracks, stopAllGlobalMediaStreams } from '@/lib/cameraUtils';
 import { playBeepSuccess, playBeepError } from '@/lib/audio';
 
 interface PickedHistoryItem {
@@ -91,8 +91,25 @@ function ScannerContent() {
   const isStartingRef = useRef<boolean>(false);
   const isStoppingRef = useRef<boolean>(false);
   const shouldStopRef = useRef<boolean>(false);
+  const isHandlingNavRef = useRef<boolean>(false);
   const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
   const readerElementId = 'qr-fullpage-reader';
+
+  // Refs for state variables so callbacks stay completely stable without restarting camera
+  const targetActionRef = useRef(targetAction);
+  targetActionRef.current = targetAction;
+  const deductAmountRef = useRef(deductAmount);
+  deductAmountRef.current = deductAmount;
+  const customAmountStrRef = useRef(customAmountStr);
+  customAmountStrRef.current = customAmountStr;
+  const showCustomAmountRef = useRef(showCustomAmount);
+  showCustomAmountRef.current = showCustomAmount;
+  const deductNoteRef = useRef(deductNote);
+  deductNoteRef.current = deductNote;
+  const selectedProjectIdRef = useRef(selectedProjectId);
+  selectedProjectIdRef.current = selectedProjectId;
+  const processingRef = useRef(processing);
+  processingRef.current = processing;
 
   // Fetch active projects for optional BOM link
   useEffect(() => {
@@ -128,19 +145,35 @@ function ScannerContent() {
       await stopHtml5QrcodeSafely(instance, readerElementId);
     } catch {}
 
+    forceStopMediaTracks(readerElementId);
+    stopAllGlobalMediaStreams();
+
     setIsScanning(false);
     isStoppingRef.current = false;
   }, [readerElementId]);
 
+  const normalizeUrlPath = (urlOrPath: string): string => {
+    try {
+      if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+        const u = new URL(urlOrPath);
+        return (u.pathname + u.search).replace(/\/+$/, '') || '/';
+      }
+      return urlOrPath.replace(/\/+$/, '') || '/';
+    } catch {
+      return urlOrPath.replace(/\/+$/, '') || '/';
+    }
+  };
+
   // Execute Auto Deduction API call
   const executeAutoDeduct = async (code: string) => {
-    if (processing) return;
+    if (processingRef.current) return;
     setProcessing(true);
     setErrorMsg(null);
 
-    const effectiveAmount = showCustomAmount && parseFloat(customAmountStr) > 0
-      ? parseFloat(customAmountStr)
-      : deductAmount;
+    const isCustom = showCustomAmountRef.current && parseFloat(customAmountStrRef.current) > 0;
+    const effectiveAmount = isCustom ? parseFloat(customAmountStrRef.current) : deductAmountRef.current;
+    const currentNote = deductNoteRef.current.trim();
+    const currentProj = selectedProjectIdRef.current;
 
     try {
       const res = await fetch('/api/scanner/quick-deduct', {
@@ -149,8 +182,8 @@ function ScannerContent() {
         body: JSON.stringify({
           code: code.trim(),
           amount: effectiveAmount,
-          note: deductNote.trim() || undefined,
-          projectId: selectedProjectId || undefined,
+          note: currentNote || undefined,
+          projectId: currentProj || undefined,
         }),
       });
 
@@ -171,7 +204,7 @@ function ScannerContent() {
         deductedAmount: data.deductedAmount,
         transactionId: data.transactionId,
         timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        note: deductNote.trim() || undefined,
+        note: currentNote || undefined,
         undone: false,
       };
 
@@ -191,8 +224,10 @@ function ScannerContent() {
     const cleanText = decodedText.trim();
     if (!cleanText) return;
 
+    const currentMode = targetActionRef.current;
+
     // In Auto-Deduct Mode: continuous scanning with debounce
-    if (targetAction === 'deduct') {
+    if (currentMode === 'deduct') {
       const now = Date.now();
       if (
         lastScannedRef.current &&
@@ -207,36 +242,57 @@ function ScannerContent() {
     }
 
     // In Lookup Mode: Stop camera and navigate to target page
-    if (processing) return;
+    if (isHandlingNavRef.current) return;
+    isHandlingNavRef.current = true;
+
     setProcessing(true);
 
+    // Completely stop camera and hardware streams before navigating
     await stopScanner();
     stopNfcScan();
 
+    const currentNorm = normalizeUrlPath(
+      typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''
+    );
+
     try {
+      let targetPath: string | null = null;
+
       if (cleanText.startsWith('http://') || cleanText.startsWith('https://')) {
         try {
           const urlObj = new URL(cleanText);
-          if (urlObj.pathname.startsWith('/items/') || urlObj.pathname.startsWith('/locations/')) {
-            router.push(urlObj.pathname);
-            return;
+          const p = urlObj.pathname;
+          if (p.startsWith('/items/') || p.startsWith('/locations/')) {
+            targetPath = p + urlObj.search;
           }
         } catch {}
       }
 
-      const res = await fetch(`/api/barcode/${encodeURIComponent(cleanText)}`);
-      const data = await res.json();
+      if (!targetPath) {
+        const res = await fetch(`/api/barcode/${encodeURIComponent(cleanText)}`);
+        const data = await res.json();
+        if (res.ok && data.url) {
+          targetPath = data.url;
+        } else {
+          targetPath = `/search?q=${encodeURIComponent(cleanText)}`;
+        }
+      }
 
-      if (res.ok && data.url) {
-        router.push(data.url);
-      } else {
-        router.push(`/search?q=${encodeURIComponent(cleanText)}`);
+      const finalPath = targetPath || `/search?q=${encodeURIComponent(cleanText)}`;
+      const targetNorm = normalizeUrlPath(finalPath);
+      // Avoid redundant navigation if already on this exact page
+      if (currentNorm !== targetNorm) {
+        router.push(finalPath);
       }
     } catch {
       setErrorMsg('Không thể tra cứu mã này');
       setProcessing(false);
+      isHandlingNavRef.current = false;
     }
   };
+
+  const handleResultRef = useRef(handleResult);
+  handleResultRef.current = handleResult;
 
   // Undo accidental deduction
   const handleUndoDeduct = async (txId: string, historyId: string) => {
@@ -273,6 +329,7 @@ function ScannerContent() {
     if (isStartingRef.current) return;
     isStartingRef.current = true;
     shouldStopRef.current = false;
+    isHandlingNavRef.current = false;
     setErrorMsg(null);
 
     // Stop previous instance cleanly
@@ -303,7 +360,7 @@ function ScannerContent() {
       await html5QrCode.start(
         { facingMode: 'environment' },
         config,
-        (decodedText) => handleResult(decodedText),
+        (decodedText) => handleResultRef.current(decodedText),
         () => {}
       );
 
@@ -323,7 +380,7 @@ function ScannerContent() {
     } finally {
       isStartingRef.current = false;
     }
-  }, [stopScanner, readerElementId, targetAction, deductAmount, showCustomAmount, customAmountStr, deductNote, selectedProjectId]);
+  }, [stopScanner, readerElementId]);
 
   const startNfcScan = useCallback(async () => {
     if (!isNfcSupported() || !window.NDEFReader) {
@@ -362,7 +419,7 @@ function ScannerContent() {
 
         if (textFound) {
           setNfcSuccessMsg(`✓ Đã đọc thẻ: ${textFound}`);
-          handleResult(textFound);
+          handleResultRef.current(textFound);
         }
       });
 
@@ -375,7 +432,7 @@ function ScannerContent() {
       }
       setNfcListening(false);
     }
-  }, [targetAction, deductAmount, showCustomAmount, customAmountStr, deductNote, selectedProjectId]);
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -408,6 +465,7 @@ function ScannerContent() {
   };
 
   const handleReopenCamera = async () => {
+    isHandlingNavRef.current = false;
     await stopScanner();
     await startScanner();
   };
@@ -416,6 +474,7 @@ function ScannerContent() {
     if (scanMedium === 'camera') {
       stopNfcScan();
       shouldStopRef.current = false;
+      isHandlingNavRef.current = false;
       const t = setTimeout(() => {
         startScanner();
       }, 150);
@@ -425,6 +484,7 @@ function ScannerContent() {
         clearTimeout(t);
         stopScanner();
         forceStopMediaTracks(readerElementId);
+        stopAllGlobalMediaStreams();
       };
     } else {
       shouldStopRef.current = true;
@@ -432,6 +492,7 @@ function ScannerContent() {
       startNfcScan();
       return () => {
         stopNfcScan();
+        stopAllGlobalMediaStreams();
       };
     }
   }, [scanMedium, startScanner, stopScanner, startNfcScan, stopNfcScan, readerElementId]);

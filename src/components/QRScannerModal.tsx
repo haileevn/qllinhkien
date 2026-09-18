@@ -12,13 +12,11 @@ import {
   MinusCircle,
   Search,
   Undo2,
-  CheckCircle2,
-  MapPin,
   Package,
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { isNfcSupported, decodeNdefRecord } from '@/lib/nfc';
-import { stopHtml5QrcodeSafely, forceStopMediaTracks } from '@/lib/cameraUtils';
+import { stopHtml5QrcodeSafely, forceStopMediaTracks, stopAllGlobalMediaStreams } from '@/lib/cameraUtils';
 import { playBeepSuccess, playBeepError } from '@/lib/audio';
 
 interface QRScannerModalProps {
@@ -55,8 +53,17 @@ export default function QRScannerModal({
   const isStartingRef = useRef<boolean>(false);
   const isStoppingRef = useRef<boolean>(false);
   const shouldStopRef = useRef<boolean>(false);
+  const isHandlingNavRef = useRef<boolean>(false);
   const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
   const readerElementId = 'qr-camera-reader-view';
+
+  // State refs to keep callbacks stable and prevent unnecessary camera restarts
+  const targetActionRef = useRef(targetAction);
+  targetActionRef.current = targetAction;
+  const onScanSuccessRef = useRef(onScanSuccess);
+  onScanSuccessRef.current = onScanSuccess;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
 
   const stopNfc = useCallback(() => {
     if (nfcAbortRef.current) {
@@ -80,36 +87,58 @@ export default function QRScannerModal({
       await stopHtml5QrcodeSafely(instance, readerElementId);
     } catch {}
 
+    forceStopMediaTracks(readerElementId);
+    stopAllGlobalMediaStreams();
+
     setIsScanning(false);
     isStoppingRef.current = false;
   }, [readerElementId]);
+
+  const normalizeUrlPath = (urlOrPath: string): string => {
+    try {
+      if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+        const u = new URL(urlOrPath);
+        return (u.pathname + u.search).replace(/\/+$/, '') || '/';
+      }
+      return urlOrPath.replace(/\/+$/, '') || '/';
+    } catch {
+      return urlOrPath.replace(/\/+$/, '') || '/';
+    }
+  };
 
   const handleResult = async (decodedText: string) => {
     const cleanText = decodedText.trim();
     if (!cleanText) return;
 
+    // Prevent duplicate frames
+    if (isHandlingNavRef.current) return;
+
+    const currentAction = targetActionRef.current;
+    const currentOnScanSuccess = onScanSuccessRef.current;
+
     // If caller provided onScanSuccess (e.g. Audit page)
-    if (onScanSuccess) {
+    if (currentOnScanSuccess) {
+      isHandlingNavRef.current = true;
       await stopScanner();
       stopNfc();
-      onScanSuccess(cleanText);
       onClose();
+      currentOnScanSuccess(cleanText);
       return;
     }
 
     // --- AUTO DEDUCT MODE ---
-    if (targetAction === 'deduct') {
+    if (currentAction === 'deduct') {
       const now = Date.now();
       if (
         lastScannedRef.current &&
         lastScannedRef.current.code === cleanText &&
         now - lastScannedRef.current.time < 1500
       ) {
-        return; // debounce frame
+        return; // debounce duplicate frame
       }
       lastScannedRef.current = { code: cleanText, time: now };
 
-      if (loading) return;
+      if (loadingRef.current) return;
       setLoading(true);
       setErrorMsg(null);
 
@@ -145,39 +174,57 @@ export default function QRScannerModal({
     }
 
     // --- LOOKUP MODE ---
-    if (loading) return;
+    isHandlingNavRef.current = true;
     setLoading(true);
 
+    // Stop camera and release all hardware streams immediately
     await stopScanner();
     stopNfc();
 
+    const currentNorm = normalizeUrlPath(
+      typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''
+    );
+
     try {
+      let targetPath: string | null = null;
+
       if (cleanText.startsWith('http://') || cleanText.startsWith('https://')) {
         try {
           const urlObj = new URL(cleanText);
-          if (urlObj.pathname.startsWith('/items/') || urlObj.pathname.startsWith('/locations/')) {
-            onClose();
-            router.push(urlObj.pathname);
-            return;
+          const p = urlObj.pathname;
+          if (p.startsWith('/items/') || p.startsWith('/locations/')) {
+            targetPath = p + urlObj.search;
           }
         } catch {}
       }
 
-      const res = await fetch(`/api/barcode/${encodeURIComponent(cleanText)}`);
-      const data = await res.json();
+      if (!targetPath) {
+        const res = await fetch(`/api/barcode/${encodeURIComponent(cleanText)}`);
+        const data = await res.json();
+        if (res.ok && data.url) {
+          targetPath = data.url;
+        } else {
+          targetPath = `/search?q=${encodeURIComponent(cleanText)}`;
+        }
+      }
 
-      if (res.ok && data.url) {
-        onClose();
-        router.push(data.url);
-      } else {
-        onClose();
-        router.push(`/search?q=${encodeURIComponent(cleanText)}`);
+      onClose();
+
+      const finalPath = targetPath || `/search?q=${encodeURIComponent(cleanText)}`;
+      const targetNorm = normalizeUrlPath(finalPath);
+      // Avoid redundant page refresh / redirect if already viewing this item or location
+      if (currentNorm !== targetNorm) {
+        router.push(finalPath);
       }
     } catch (err) {
       setErrorMsg('Không thể tra cứu mã này');
       setLoading(false);
+      isHandlingNavRef.current = false;
     }
   };
+
+  const handleResultRef = useRef(handleResult);
+  handleResultRef.current = handleResult;
 
   const handleUndoDeduct = async () => {
     if (!lastDeducted || isUndoing) return;
@@ -208,6 +255,7 @@ export default function QRScannerModal({
     if (isStartingRef.current) return;
     isStartingRef.current = true;
     shouldStopRef.current = false;
+    isHandlingNavRef.current = false;
     setErrorMsg(null);
 
     await stopScanner();
@@ -238,7 +286,7 @@ export default function QRScannerModal({
         { facingMode: 'environment' },
         config,
         (decodedText) => {
-          handleResult(decodedText);
+          handleResultRef.current(decodedText);
         },
         () => {}
       );
@@ -259,7 +307,7 @@ export default function QRScannerModal({
     } finally {
       isStartingRef.current = false;
     }
-  }, [stopScanner, readerElementId, targetAction]);
+  }, [stopScanner, readerElementId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -306,13 +354,13 @@ export default function QRScannerModal({
           textFound = event.serialNumber;
         }
         if (textFound) {
-          handleResult(textFound);
+          handleResultRef.current(textFound);
         }
       });
     } catch {
       setNfcActive(false);
     }
-  }, [targetAction]);
+  }, []);
 
   const handleClose = async () => {
     shouldStopRef.current = true;
@@ -322,6 +370,7 @@ export default function QRScannerModal({
   };
 
   const handleRescan = async () => {
+    isHandlingNavRef.current = false;
     await stopScanner();
     await startScanner();
   };
@@ -329,6 +378,7 @@ export default function QRScannerModal({
   useEffect(() => {
     if (isOpen) {
       shouldStopRef.current = false;
+      isHandlingNavRef.current = false;
       const t = setTimeout(() => {
         startScanner();
         startNfc();
@@ -340,12 +390,14 @@ export default function QRScannerModal({
         stopScanner();
         stopNfc();
         forceStopMediaTracks(readerElementId);
+        stopAllGlobalMediaStreams();
       };
     } else {
       shouldStopRef.current = true;
       stopScanner();
       stopNfc();
       forceStopMediaTracks(readerElementId);
+      stopAllGlobalMediaStreams();
     }
   }, [isOpen, startScanner, startNfc, stopScanner, stopNfc, readerElementId]);
 
