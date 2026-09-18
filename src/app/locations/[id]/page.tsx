@@ -23,6 +23,9 @@ import {
   Coins,
   Radio,
   ArrowRightLeft,
+  Camera,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ItemCard from '@/components/ItemCard';
@@ -48,6 +51,7 @@ export default function LocationDetailPage() {
   const [nfcModalOpen, setNfcModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -203,6 +207,35 @@ export default function LocationDetailPage() {
           ))}
         </div>
 
+        {/* Real-life Location / Box Photo Banner if available */}
+        {location.image && (
+          <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 group shadow-md max-h-72">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={location.image}
+              alt={location.name}
+              className="w-full h-52 sm:h-64 object-cover object-center cursor-pointer group-hover:scale-102 transition-transform duration-300"
+              onClick={() => setPreviewImage(location.image)}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-3.5 pointer-events-none">
+              <span className="px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-bold backdrop-blur-md flex items-center gap-1.5 border border-white/20">
+                <Camera className="w-3.5 h-3.5 text-sky-400" />
+                <span>Ảnh chụp thực tế Box / Vị trí</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPreviewImage(location.image)}
+                className="pointer-events-auto px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                title="Xem ảnh phóng to"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Phóng to ảnh</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Title & Code */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -334,15 +367,31 @@ export default function LocationDetailPage() {
               <Link
                 key={child.id}
                 href={`/locations/${child.id}`}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 hover:border-sky-400 dark:hover:border-sky-700 transition-all shadow-sm group"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 hover:border-sky-400 dark:hover:border-sky-700 transition-all shadow-sm group flex flex-col justify-between"
               >
-                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                  <Folder className="w-4 h-4" />
+                <div>
+                  {child.image ? (
+                    <div className="relative w-full h-24 rounded-xl overflow-hidden mb-2 border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={child.image}
+                        alt={child.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs flex items-center gap-0.5">
+                        <Camera className="w-2.5 h-2.5" />
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                      <Folder className="w-4 h-4" />
+                    </div>
+                  )}
+                  <h3 className="font-bold text-slate-900 dark:text-white text-xs truncate group-hover:text-sky-600">
+                    {child.name}
+                  </h3>
                 </div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-xs truncate group-hover:text-sky-600">
-                  {child.name}
-                </h3>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                   <span>{child.code ? `[${child.code}]` : ''}</span>
                   <span className="text-sky-600 font-semibold">{child._count?.items || 0} món</span>
                 </div>
@@ -423,6 +472,28 @@ export default function LocationDetailPage() {
           code={location.code || location.name}
           urlPath={`/locations/${location.id}`}
         />
+      )}
+      {/* Zoom Modal for Location Photo */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewImage}
+              alt="Phóng to ảnh vị trí"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

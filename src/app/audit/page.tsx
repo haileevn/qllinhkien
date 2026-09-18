@@ -18,9 +18,11 @@ import {
   Sparkles,
   Coins,
   CheckCheck,
+  Camera,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import QRScannerModal from '@/components/QRScannerModal';
+import { buildHierarchyOptions } from '@/lib/tree-utils';
 import { removeVietnameseTones } from '@/lib/vietnamese';
 import { canEdit } from '@/lib/permissions';
 
@@ -35,6 +37,8 @@ function AuditContent() {
   const [loading, setLoading] = useState(false);
   const [verifiedMap, setVerifiedMap] = useState<Record<string, boolean>>({});
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
+
+  const selectedLoc = locations.find((l) => l.id === selectedLocationId);
 
   // QR Scanner modal state
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -263,15 +267,35 @@ function AuditContent() {
         <select
           value={selectedLocationId}
           onChange={(e) => setSelectedLocationId(e.target.value)}
-          className="w-full px-3.5 py-2.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+          className="w-full px-3.5 py-2.5 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white font-medium"
         >
-          {locations.map((loc) => (
+          {buildHierarchyOptions(locations).map((loc) => (
             <option key={loc.id} value={loc.id}>
-              {loc.code ? `[${loc.code}] ` : ''}
-              {loc.name}
+              {loc.formattedOptionLabel}
             </option>
           ))}
         </select>
+
+        {/* Selected Location Photo preview if available */}
+        {selectedLoc?.image && (
+          <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-200/60 dark:border-sky-800/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedLoc.image}
+              alt={selectedLoc.name}
+              className="w-14 h-14 rounded-xl object-cover border border-sky-200 dark:border-sky-700 shrink-0 shadow-xs"
+            />
+            <div className="text-xs">
+              <div className="font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-sky-600" />
+                <span>Ảnh chụp thực tế vị trí: {selectedLoc.name}</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Đối chiếu với hình ảnh hộp / kệ thực tế tại hiện trường
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Progress bar and Quick bulk actions */}
         {items.length > 0 && (

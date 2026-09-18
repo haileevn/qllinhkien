@@ -26,6 +26,7 @@ import {
 import Navbar from '@/components/Navbar';
 import EditLocationModal from '@/components/EditLocationModal';
 import DeleteLocationModal from '@/components/DeleteLocationModal';
+import LocationPhotoUploader from '@/components/LocationPhotoUploader';
 import { buildHierarchyOptions } from '@/lib/tree-utils';
 
 interface LocationNode {
@@ -33,6 +34,7 @@ interface LocationNode {
   name: string;
   code: string | null;
   description: string | null;
+  image?: string | null;
   parentId: string | null;
   directValue?: number;
   directQuantity?: number;
@@ -54,6 +56,7 @@ export default function LocationsPage() {
   const [newName, setNewName] = useState('');
   const [newCode, setNewCode] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newImage, setNewImage] = useState<string | null>(null);
   const [newParentId, setNewParentId] = useState<string>('');
   const [addParentSearch, setAddParentSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +132,7 @@ export default function LocationsPage() {
           name: newName.trim(),
           code: newCode.trim() || null,
           description: newDescription.trim() || null,
+          image: newImage || null,
           parentId: newParentId || null,
         }),
       });
@@ -142,6 +146,7 @@ export default function LocationsPage() {
       setNewName('');
       setNewCode('');
       setNewDescription('');
+      setNewImage(null);
       setNewParentId('');
       fetchLocations();
     } catch (err: any) {
@@ -155,6 +160,7 @@ export default function LocationsPage() {
     e.preventDefault();
     e.stopPropagation();
     setNewParentId(parentId);
+    setNewImage(null);
     setAddModalOpen(true);
   };
 
@@ -210,7 +216,14 @@ export default function LocationsPage() {
               href={`/locations/${node.id}`}
               className="flex items-center gap-2 min-w-0 flex-1 hover:text-sky-600 dark:hover:text-sky-400"
             >
-              {isExpanded ? (
+              {node.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={node.image}
+                  alt={node.name}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                />
+              ) : isExpanded ? (
                 <FolderOpen className="w-4 h-4 text-sky-500 shrink-0" />
               ) : (
                 <Folder className="w-4 h-4 text-amber-500 shrink-0" />
@@ -429,6 +442,15 @@ export default function LocationsPage() {
                   onChange={(e) => setNewName(e.target.value)}
                   required
                   className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Location Photo Uploader */}
+              <div>
+                <LocationPhotoUploader
+                  image={newImage}
+                  onChange={setNewImage}
+                  label="Ảnh chụp thực tế Box / Kệ / Tủ (Tùy chọn)"
                 />
               </div>
 

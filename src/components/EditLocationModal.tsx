@@ -13,6 +13,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { buildHierarchyOptions } from '@/lib/tree-utils';
+import LocationPhotoUploader from './LocationPhotoUploader';
 
 interface EditLocationModalProps {
   isOpen: boolean;
@@ -22,12 +23,14 @@ interface EditLocationModalProps {
     name: string;
     code?: string | null;
     description?: string | null;
+    image?: string | null;
     parentId?: string | null;
   } | null;
   allLocations: Array<{
     id: string;
     name: string;
     code?: string | null;
+    image?: string | null;
     parentId?: string | null;
   }>;
   onSaved: () => void;
@@ -43,6 +46,7 @@ export default function EditLocationModal({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
+  const [image, setImage] = useState<string | null>(null);
   const [parentId, setParentId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,7 @@ export default function EditLocationModal({
       setName(location.name || '');
       setCode(location.code || '');
       setDescription(location.description || '');
+      setImage(location.image || null);
       setParentId(location.parentId || '');
       setError(null);
     }
@@ -118,6 +123,7 @@ export default function EditLocationModal({
           name: name.trim(),
           code: code.trim() || null,
           description: description.trim() || null,
+          image: image || null,
           parentId: parentId || null,
         }),
       });
@@ -138,9 +144,9 @@ export default function EditLocationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold">
               <Edit className="w-5 h-5" />
@@ -164,7 +170,7 @@ export default function EditLocationModal({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -184,6 +190,15 @@ export default function EditLocationModal({
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none text-slate-900 dark:text-white font-medium"
+            />
+          </div>
+
+          {/* Photo Uploader */}
+          <div>
+            <LocationPhotoUploader
+              image={image}
+              onChange={setImage}
+              label="Ảnh chụp thực tế Box / Tủ / Kệ (Tùy chọn)"
             />
           </div>
 
